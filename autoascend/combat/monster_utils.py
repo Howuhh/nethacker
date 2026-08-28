@@ -30,13 +30,10 @@ def is_dangerous_monster(monster):
     # hypothesis: treating hostile orcs and elves as dangerous lets the existing retreat,
     # Elbereth, and wand heuristics prevent the repeated hill-orc/Green-elf deaths.
     is_hostile_race = getattr(mon, 'mflags2', 0) & (MON.M2_ORC | MON.M2_ELF)
-    # hypothesis: treating difficulty-8+ monsters as dangerous activates the existing
-    # retreat, Elbereth, and wand defenses before xorn/centaur-class threats become fatal.
-    is_high_difficulty = getattr(mon, 'difficulty', 0) >= 8
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or is_high_difficulty
+    return is_pet or mon.mname in INSECTS or bool(is_hostile_race)
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):
