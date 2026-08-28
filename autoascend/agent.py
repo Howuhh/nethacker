@@ -1103,6 +1103,12 @@ class Agent:
         yielded = False
         wait_counter = 0
         while 1:
+            # hypothesis: deferring combat while hallucinating prevents high-value runs from turning peaceful NPCs hostile until identities are reliable again.
+            if self.character.prop.hallu:
+                if not yielded:
+                    yield False
+                return
+
             monsters = self.get_visible_monsters()
             allow_attack_all = self._last_turn - self._allow_attack_all_turn < 3
             only_ranged_slow_monsters = all([monster[3].mname in combat.monster_utils.ONLY_RANGED_SLOW_MONSTERS
