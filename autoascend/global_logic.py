@@ -515,10 +515,10 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: leaving Dlvl 1 at XL7 avoids the lethal XL7-to-8 farming grind while retaining enough strength for the Mines.
-                condition = lambda: self.agent.blstats.experience_level >= 7
-                # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
-                #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
+                # hypothesis: ending the D:1 farm when weak and out of carried food prevents starvation without weakening well-supplied runs.
+                condition = lambda: self.agent.blstats.experience_level >= 8 or (
+                    self.agent.blstats.hunger_state >= Hunger.WEAK and
+                    self.agent.inventory.items.total_nutrition() == 0)
                 level = (Level.DUNGEONS_OF_DOOM, 1)
 
             elif self.milestone == Milestone.FIND_SOKOBAN:
