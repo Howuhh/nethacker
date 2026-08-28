@@ -327,14 +327,7 @@ class GlobalLogic:
                 yield True
                 yielded = True
 
-            # hypothesis: sheltering under Elbereth after hallucination damage lets the bot wait out the status without blindly attacking peaceful creatures or absorbing every hostile hit.
-            if self.agent.character.prop.hallu and \
-                    self.agent.blstats.hitpoints < self.agent.blstats.max_hitpoints and \
-                    self.agent.inventory.engraving_below_me.lower() != 'elbereth' and \
-                    self.agent.can_engrave():
-                self.agent.engrave('Elbereth')
-            else:
-                self.agent.direction('.')
+            self.agent.direction('.')
 
         if not yielded:
             yield False
@@ -522,7 +515,9 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                condition = lambda: self.agent.blstats.experience_level >= 8
+                # hypothesis: dwarves can leave the first-floor farm at XL6 because their racial peace in the Mines makes earlier branch progression safer.
+                condition = lambda: self.agent.blstats.experience_level >= (
+                    6 if self.agent.character.race == Character.DWARF else 8)
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
