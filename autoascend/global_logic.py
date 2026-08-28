@@ -327,7 +327,14 @@ class GlobalLogic:
                 yield True
                 yielded = True
 
-            self.agent.direction('.')
+            # hypothesis: sheltering under Elbereth after hallucination damage lets the bot wait out the status without blindly attacking peaceful creatures or absorbing every hostile hit.
+            if self.agent.character.prop.hallu and \
+                    self.agent.blstats.hitpoints < self.agent.blstats.max_hitpoints and \
+                    self.agent.inventory.engraving_below_me.lower() != 'elbereth' and \
+                    self.agent.can_engrave():
+                self.agent.engrave('Elbereth')
+            else:
+                self.agent.direction('.')
 
         if not yielded:
             yield False

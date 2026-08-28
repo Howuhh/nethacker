@@ -27,8 +27,8 @@ def is_dangerous_monster(monster):
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    # hypothesis: treating intrinsically difficult monsters as dangerous extends low-HP defenses to strong slow attackers that speed-only threat detection misses.
-    return is_pet or mon.mname in INSECTS or mon.mmove > 12 or getattr(mon, 'difficulty', 0) >= 5
+    # hypothesis: treating above-normal-speed monsters as dangerous triggers defensive tactics before they can win a low-HP damage race.
+    return is_pet or mon.mname in INSECTS or mon.mmove > 12
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):
