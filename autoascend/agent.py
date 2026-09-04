@@ -1322,8 +1322,6 @@ class Agent:
                 yield False
             corpse_mapping = level.corpses_to_eat[y, x]
             for monster_id, corpse_age in corpse_mapping.items():
-                if monster_id == MON.id_from_name('lizard'):
-                    continue
                 if level.shop[y, x]:
                     continue
                 if self._is_corpse_editable(monster_id, corpse_age):
@@ -1332,8 +1330,6 @@ class Agent:
         else:
             for (y, x), corpse_mapping in level.corpses_to_eat.items():
                 for monster_id, corpse_age in corpse_mapping.items():
-                    if monster_id == MON.id_from_name('lizard'):
-                        continue
                     if level.shop[y, x]:
                         continue
                     if self._is_corpse_editable(monster_id, corpse_age):
@@ -1408,18 +1404,13 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
-        if self.blstats.prop_mask & nh.BL_MASK_STONE:
-            lizard_corpses = [item for item in flatten_items(self.inventory.items)
-                              if item.is_corpse() and
-                              item.monster_id == MON.id_from_name('lizard')]
-            if lizard_corpses:
-                yield True
-                self.inventory.eat(lizard_corpses[0])
-                return
-            if self.is_safe_to_pray():
-                yield True
-                self.pray()
-                return
+        # hypothesis: praying at the late stoning warning lets every Valkyrie use the
+        # existing cooldown-aware divine cure instead of losing progressed runs to petrification.
+        if self.blstats.prop_mask & nh.BL_MASK_STONE and \
+                'Your limbs are stiffening' in self.message and self.is_safe_to_pray():
+            yield True
+            self.pray()
+            return
 
         # if self.should_cast_extra_heal():
         #     yield True
@@ -1434,9 +1425,7 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                # hypothesis: drinking identified healing while below half health prevents
-                # routine melee deaths before they become unrecoverable for every Valkyrie.
-                (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
@@ -1460,17 +1449,15 @@ class Agent:
             self.pray()
             return
 
-        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
-        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
-        if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
-            yield True
-            self.engrave('Elbereth')
-            for _ in range(8):
-                if self.inventory.engraving_below_me.lower() != 'elbereth':
-                    break
-                self.direction('.')
-            return
+        # if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
+        #         (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
+        #     yield True
+        #     self.engrave('Elbereth')
+        #     for _ in range(8):
+        #         if self.inventory.engraving_below_me.lower() != 'elbereth':
+        #             break
+        #         self.direction('.')
+        #     return
 
         yield False
 
@@ -1479,9 +1466,19 @@ class Agent:
     def eat_from_inventory(self):
         if self.blstats.hunger_state < Hunger.HUNGRY:
             yield False
-        for item in flatten_items(self.inventory.items):
+        foods = list(flatten_items(self.inventory.items))
+        # hypothesis: deferring slow-to-open tins while ready-to-eat food is available prevents weak heroes,
+        # especially Tourists, from giving nearby monsters many free attacks without sacrificing emergency food.
+        foods.sort(key=lambda item: item.is_unambiguous() and item.object.name == 'tin')
+        for item in foods:
+            # hypothesis: refusing nutritionally tiny eggs (whose species is often hidden) and identified
+            # cockatrice tins as hunger food prevents deterministic petrification without sacrificing useful food.
+            petrifying_food = item.is_unambiguous() and (item.object.name == 'egg' or (
+                item.object.name == 'tin' and item.monster_id is not None and
+                ord(MON.permonst(item.monster_id).mlet) == MON.S_COCKATRICE))
             if item.category == nh.FOOD_CLASS and \
                     item.objs[0].name != 'sprig of wolfsbane' and \
+                    not petrifying_food and \
                     (not item.is_corpse() or
                      item.monster_id in [MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']]):
                 yield True
