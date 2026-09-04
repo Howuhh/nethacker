@@ -203,6 +203,16 @@ def elbereth_action(agent, monsters):
         return []
     if not agent.can_engrave():
         return []
+    # hypothesis: engraving against an adjacent dangerous foe while still above the
+    # near-fatal range gives every Valkyrie time to recover instead of trading the
+    # last few melee hits, preventing the common early combat deaths.
+    if agent.blstats.hitpoints < 0.5 * agent.blstats.max_hitpoints and any(
+            adjacent((my, mx), (agent.blstats.y, agent.blstats.x)) and
+            is_dangerous_monster(monster)
+            for monster in monsters
+            for _, my, mx, _, _ in [monster]
+    ):
+        return [(20, ('elbereth',))]
     adj_monsters_count = 0
     for monster in monsters:
         _, my, mx, mon, _ = monster
