@@ -405,9 +405,9 @@ class GlobalLogic:
             return False
 
         permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
-        # hypothesis: refusing to pick up petrifying corpses for sacrifice prevents
-        # otherwise deep runs from dying to a cockatrice corpse while preserving
-        # the normal sacrifice strategy for every Valkyrie.
+        # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
+        # retreat, Elbereth, and wand logic available before poison, petrification, or
+        # sliming can end a run across all Valkyrie identities.
         if ord(permonst.mlet) == MON.S_COCKATRICE:
             return False
 
@@ -639,7 +639,9 @@ class GlobalLogic:
             .preempt(self.agent, [
                 self.agent.eat_corpses_from_ground(only_below_me=True).condition(lambda: self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY),
                 self.agent.eat_corpses_from_ground().every(5).condition(lambda: self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY),
-                self.agent.eat_from_inventory().every(5),
+                # hypothesis: eating carried food as soon as hunger begins prevents the
+                # cross-character starvation deaths caused by delayed nutrition checks.
+                self.agent.eat_from_inventory(),
             ])
             .preempt(self.agent, [
                 self.follow_guard(),
