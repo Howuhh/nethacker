@@ -1243,13 +1243,10 @@ class Agent:
             assert self.melee_attack(*list(zip(*mask.nonzero()))[0])
 
     def _is_corpse_editable(self, monster_id, age_turn):
-        permonst = MON.permonst(monster_id)
-
-        # hypothesis: treating cockatrices as a no-touch threat while barehanded
-        # prevents instant petrification from both melee and corpse handling across
-        # all Valkyrie identities.
-        if permonst.mname in combat.monster_utils.PETRIFYING_MONSTERS and self.inventory.items.gloves is None:
-            return False
+        # hypothesis: decoding a corpse's monster id as a body glyph makes the
+        # existing poisonous, petrifying, and aged-corpse checks reject the actual
+        # dangerous meat instead of inspecting an unrelated monster.
+        permonst = MON.permonst(monster_id + nh.GLYPH_BODY_OFF)
 
         # TODO: read intrinsics
         if self.character.race != Character.ORC and permonst.mflags1 & MON.M1_POIS != 0:
