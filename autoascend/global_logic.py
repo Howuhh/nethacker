@@ -404,7 +404,14 @@ class GlobalLogic:
         if not item.is_corpse() or item.comment == 'old':
             return False
 
-        mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
+        permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
+        # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
+        # retreat, Elbereth, and wand logic available before poison, petrification, or
+        # sliming can end a run across all Valkyrie identities.
+        if ord(permonst.mlet) == MON.S_COCKATRICE:
+            return False
+
+        mname = permonst.mname
         if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
                 (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
                 (mname == 'little dog' and item.naming):  # little dogs are always named
@@ -515,7 +522,11 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                condition = lambda: self.agent.blstats.experience_level >= 8
+                # hypothesis: ending the level-one farm when the Valkyrie remains weak
+                # after normal eating avoids starvation when that floor's food is
+                # exhausted, while well-fed characters retain the safe XL8 opening.
+                condition = lambda: self.agent.blstats.experience_level >= 8 or \
+                    self.agent.blstats.hunger_state >= Hunger.WEAK
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
@@ -557,7 +568,9 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                self.milestone = Milestone(int(self.milestone) + 1)
+                # hypothesis: after the neutral Valkyrie safely reaches XL8, direct Doom descent yields depth and XP progression more reliably than the unfinished Mines/Sokoban detour.
+                self.milestone = Milestone.GO_DOWN if self.milestone == Milestone.BE_ON_FIRST_LEVEL else \
+                    Milestone(int(self.milestone) + 1)
                 continue
 
 
