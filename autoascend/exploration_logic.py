@@ -266,6 +266,11 @@ class ExplorationLogic:
         def open_neighbor_doors():
             # TODO: polymorphed into a handless creature, too heavy load to kick, using lockpicks
 
+            def can_kick_door(y, x):
+                # hypothesis: never kicking a recognized shop entrance avoids angering
+                # shopkeepers, preserving otherwise promising runs for every Valkyrie.
+                return kick_doors and not self.agent.current_level().shop[y, x]
+
             yielded = False
             for py, px in self.agent.neighbors(self.agent.blstats.y, self.agent.blstats.x, diagonal=False):
                 if (self.agent.current_level().door_open_count[py, px] < door_open_count or kick_doors) and \
@@ -280,11 +285,11 @@ class ExplorationLogic:
                                     if self.agent.open_door(py, px):
                                         break
                                 else:
-                                    if kick_doors:
+                                    if can_kick_door(py, px):
                                         while self.agent.glyphs[py, px] in G.DOOR_CLOSED:
                                             self.agent.kick(py, px)
                             else:
-                                if kick_doors:
+                                if can_kick_door(py, px):
                                     while self.agent.glyphs[py, px] in G.DOOR_CLOSED:
                                         self.agent.kick(py, px)
                     break
