@@ -515,13 +515,10 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: leaving a food-poor starting level at XL6 prevents the
-                # prolonged level-one farming that turns otherwise viable Valkyries
-                # into starvation losses, while retaining the usual XL8 preparation.
+                # hypothesis: an XL7 opening still farming after 30k actions has crossed
+                # the point where direct descent beats further level-one action churn.
                 condition = lambda: self.agent.blstats.experience_level >= 8 or (
-                    self.agent.blstats.experience_level >= 6 and
-                    self.agent.blstats.hunger_state >= Hunger.HUNGRY and
-                    self.agent.inventory.items.total_nutrition() < 600)
+                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000)
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
