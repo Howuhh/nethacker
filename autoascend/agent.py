@@ -1416,10 +1416,12 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
+        has_available_food = any(
+            item.category == nh.FOOD_CLASS
+            for item in flatten_items(list(self.inventory.items) + self.inventory.items_below_me)
+        )
         if (
-                # hypothesis: drinking a known healing potion below half health prevents
-                # fast enemies from converting one low-health combat turn into a death.
-                (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
@@ -1437,7 +1439,11 @@ class Agent:
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
-                or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
+                # hypothesis: praying as soon as hunger makes the character weak prevents
+                # starvation deaths during long explorations, when waiting for fainting costs
+                # several irreplaceable turns and no food is available.
+                or (self.is_safe_to_pray(400) and not has_available_food and
+                    self.blstats.hunger_state >= Hunger.WEAK)
         ):
             yield True
             self.pray()
