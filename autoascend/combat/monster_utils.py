@@ -36,10 +36,13 @@ def is_dangerous_monster(monster):
     # hypothesis: treating fast monsters as dangerous makes every Valkyrie start
     # retreating or using ranged options before rats, bats, and spiders get repeated hits.
     is_fast = getattr(mon, 'mmove', 0) > 12
+    # hypothesis: treating spiders as dangerous makes Valkyries use their existing
+    # defensive combat options before a poisonous or fast arachnid can end an early run.
+    is_spider = 'spider' in mon.mname
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong) or is_fast
+    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong) or is_fast or is_spider
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):
