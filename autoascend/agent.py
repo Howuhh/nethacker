@@ -1245,6 +1245,12 @@ class Agent:
     def _is_corpse_editable(self, monster_id, age_turn):
         permonst = MON.permonst(monster_id)
 
+        # hypothesis: treating cockatrices as a no-touch threat while barehanded
+        # prevents instant petrification from both melee and corpse handling across
+        # all Valkyrie identities.
+        if permonst.mname in combat.monster_utils.PETRIFYING_MONSTERS and self.inventory.items.gloves is None:
+            return False
+
         # TODO: read intrinsics
         if self.character.race != Character.ORC and permonst.mflags1 & MON.M1_POIS != 0:
             return False

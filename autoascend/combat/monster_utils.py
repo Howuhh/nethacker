@@ -7,6 +7,7 @@ EXPLODING_MONSTERS = ['yellow light', 'gas spore', 'flaming sphere', 'freezing s
 INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle', 'queen bee']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
+PETRIFYING_MONSTERS = ['cockatrice', 'chickatrice']
 
 
 def is_monster_faster(agent, monster):
@@ -18,6 +19,8 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
+    if monster[3].mname in PETRIFYING_MONSTERS and agent.inventory.items.gloves is None:
+        return True
     if is_dangerous_monster(monster):
         return agent.blstats.hitpoints <= 16
     return agent.blstats.hitpoints <= 8
