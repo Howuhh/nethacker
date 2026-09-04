@@ -1417,9 +1417,7 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                # hypothesis: drinking identified healing while below half health prevents
-                # routine melee deaths before they become unrecoverable for every Valkyrie.
-                (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
@@ -1435,10 +1433,8 @@ class Agent:
 
         if (
                 (self.is_safe_to_pray(500) and
-                 # hypothesis: praying at one-third health spends an available emergency heal
-                 # before routine melee damage can turn a recoverable fight into death.
-                 (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
-                  self.blstats.hitpoints < 6))
+                 (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
+                  * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
                 or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True

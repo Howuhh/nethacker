@@ -213,8 +213,8 @@ def elbereth_action(agent, monsters):
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
-        # hypothesis: recognizing weak monsters by name avoids needless Elbereth
-        # retreats, preserving turns and nutrition for progress on every Valkyrie.
+        # hypothesis: recognizing weak adjacent monsters by name avoids needless
+        # Elbereth retreats, preserving turns and nutrition for every Valkyrie.
         if mon.mname in WEAK_MONSTERS:
             adj_monsters_count += 0.1 * multiplier
             continue
