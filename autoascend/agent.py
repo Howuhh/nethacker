@@ -1404,6 +1404,14 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
+        # hypothesis: praying at the late stoning warning lets the existing
+        # cooldown-aware divine cure prevent otherwise irreversible petrification.
+        if self.blstats.prop_mask & nh.BL_MASK_STONE and \
+                'Your limbs are stiffening' in self.message and self.is_safe_to_pray():
+            yield True
+            self.pray()
+            return
+
         # if self.should_cast_extra_heal():
         #     yield True
         #     self.cast('extra healing', direction=(0, 0))
