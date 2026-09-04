@@ -1435,10 +1435,7 @@ class Agent:
 
         if (
                 (self.is_safe_to_pray(500) and
-                 # hypothesis: using an available safe prayer at one-third health
-                 # preserves Valkyries through ordinary early melee fights before
-                 # their emergency reserve is too small to survive another hit.
-                 (self.blstats.hitpoints < 1 / 3
+                 (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
                 or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
@@ -1446,10 +1443,10 @@ class Agent:
             self.pray()
             return
 
-        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
-        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
+        # hypothesis: engraving Elbereth at one-third health when an emergency heal is
+        # unavailable gives every Valkyrie time to recover before a losing melee becomes fatal.
         if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
             yield True
             self.engrave('Elbereth')
             for _ in range(8):
