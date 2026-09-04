@@ -405,9 +405,9 @@ class GlobalLogic:
             return False
 
         permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
-        # hypothesis: never retaining cockatrice corpses for sacrifice prevents
-        # accidental bare-hand petrification while moving through altars for every
-        # Valkyrie identity.
+        # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
+        # retreat, Elbereth, and wand logic available before poison, petrification, or
+        # sliming can end a run across all Valkyrie identities.
         if ord(permonst.mlet) == MON.S_COCKATRICE:
             return False
 
@@ -522,10 +522,12 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: an XL7 opening still farming after 30k actions has crossed
-                # the point where direct descent beats further level-one action churn.
+                # hypothesis: leaving the starting level when hungry with no carried
+                # food prevents early starvation while preserving the normal XL8
+                # farming target whenever the run has enough provisions.
                 condition = lambda: self.agent.blstats.experience_level >= 8 or (
-                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000)
+                    self.agent.blstats.hunger_state >= Hunger.HUNGRY and
+                    self.agent.inventory.items.total_nutrition() == 0)
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)

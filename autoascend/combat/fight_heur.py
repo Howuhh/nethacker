@@ -203,15 +203,6 @@ def elbereth_action(agent, monsters):
         return []
     if not agent.can_engrave():
         return []
-    # hypothesis: a conservative one-third-health Elbereth retreat against an
-    # adjacent non-weak monster prevents shallow melee deaths for every
-    # Valkyrie while avoiding the stalled half-health retreats that cost XP.
-    if agent.blstats.hitpoints < agent.blstats.max_hitpoints / 3 and any(
-            adjacent((my, mx), (agent.blstats.y, agent.blstats.x)) and
-            mon.mname not in WEAK_MONSTERS and mon.mname not in ONLY_RANGED_SLOW_MONSTERS
-            for _, my, mx, mon, _ in monsters
-    ):
-        return [(20, ('elbereth',))]
     adj_monsters_count = 0
     for monster in monsters:
         _, my, mx, mon, _ = monster
