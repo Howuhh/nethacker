@@ -1243,10 +1243,7 @@ class Agent:
             assert self.melee_attack(*list(zip(*mask.nonzero()))[0])
 
     def _is_corpse_editable(self, monster_id, age_turn):
-        # hypothesis: decoding a corpse's monster id as a body glyph makes the
-        # existing poisonous, petrifying, and aged-corpse checks reject the actual
-        # dangerous meat instead of inspecting an unrelated monster.
-        permonst = MON.permonst(monster_id + nh.GLYPH_BODY_OFF)
+        permonst = MON.permonst(monster_id)
 
         # TODO: read intrinsics
         if self.character.race != Character.ORC and permonst.mflags1 & MON.M1_POIS != 0:
@@ -1420,7 +1417,9 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
+                # hypothesis: drinking a known healing potion below half health prevents
+                # fast enemies from converting one low-health combat turn into a death.
+                (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
