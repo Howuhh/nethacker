@@ -1435,7 +1435,10 @@ class Agent:
 
         if (
                 (self.is_safe_to_pray(500) and
-                 (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
+                 # hypothesis: using an available safe prayer at one-third health
+                 # preserves Valkyries through ordinary early melee fights before
+                 # their emergency reserve is too small to survive another hit.
+                 (self.blstats.hitpoints < 1 / 3
                   * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
                 or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
