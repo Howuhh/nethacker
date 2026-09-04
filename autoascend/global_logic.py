@@ -405,9 +405,9 @@ class GlobalLogic:
             return False
 
         permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
-        # hypothesis: refusing to pick up petrifying corpses for sacrifice prevents
-        # otherwise deep runs from dying to a cockatrice corpse while preserving
-        # the normal sacrifice strategy for every Valkyrie.
+        # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
+        # retreat, Elbereth, and wand logic available before poison, petrification, or
+        # sliming can end a run across all Valkyrie identities.
         if ord(permonst.mlet) == MON.S_COCKATRICE:
             return False
 
