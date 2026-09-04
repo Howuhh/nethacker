@@ -1245,9 +1245,6 @@ class Agent:
     def _is_corpse_editable(self, monster_id, age_turn):
         permonst = MON.permonst(monster_id)
 
-        if permonst.mname in combat.monster_utils.PETRIFYING_MONSTERS:
-            return False
-
         # TODO: read intrinsics
         if self.character.race != Character.ORC and permonst.mflags1 & MON.M1_POIS != 0:
             return False

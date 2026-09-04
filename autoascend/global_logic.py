@@ -7,7 +7,6 @@ from nle.nethack import actions as A
 from . import objects as O
 from . import soko_solver
 from . import utils
-from . import combat
 from .character import Character
 from .exceptions import AgentPanic
 from .glyph import Hunger, G, MON
@@ -406,10 +405,6 @@ class GlobalLogic:
             return False
 
         mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
-        # Never pick up a petrifying corpse merely to offer it: even a safe
-        # sacrifice is not worth a fatal touch while transporting it.
-        if mname in combat.monster_utils.PETRIFYING_MONSTERS:
-            return False
         if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
                 (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
                 (mname == 'little dog' and item.naming):  # little dogs are always named
