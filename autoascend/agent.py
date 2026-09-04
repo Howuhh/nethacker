@@ -1417,7 +1417,9 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
+                # hypothesis: drinking identified healing while below half health prevents
+                # routine melee deaths before they become unrecoverable for every Valkyrie.
+                (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
@@ -1441,15 +1443,17 @@ class Agent:
             self.pray()
             return
 
-        # if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-        #         (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
-        #     yield True
-        #     self.engrave('Elbereth')
-        #     for _ in range(8):
-        #         if self.inventory.engraving_below_me.lower() != 'elbereth':
-        #             break
-        #         self.direction('.')
-        #     return
+        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
+        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
+        if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
+                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
+            yield True
+            self.engrave('Elbereth')
+            for _ in range(8):
+                if self.inventory.engraving_below_me.lower() != 'elbereth':
+                    break
+                self.direction('.')
+            return
 
         yield False
 
