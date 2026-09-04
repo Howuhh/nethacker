@@ -1280,8 +1280,10 @@ class Inventory:
         level = self.agent.current_level()
         dis = self.agent.bfs()
 
-        # TODO: free (no charge) items
-        mask = ~level.shop_interior & (dis > 0)
+        # hypothesis: treating every mapped shop tile as off-limits keeps the
+        # unattended item-collection paths from taking merchandise at shop
+        # entrances and provoking shopkeepers across all Valkyrie identities.
+        mask = ~level.shop & (dis > 0)
         if not mask.any():
             yield False
 
@@ -1326,7 +1328,7 @@ class Inventory:
     def pickup_and_drop_items(self):
         # TODO: free (no charge) items
         self.item_manager.price_identification()
-        if self.agent.current_level().shop_interior[self.agent.blstats.y, self.agent.blstats.x]:
+        if self.agent.current_level().shop[self.agent.blstats.y, self.agent.blstats.x]:
             yield False
         if len(self.items_below_me) == 0:
             yield False
