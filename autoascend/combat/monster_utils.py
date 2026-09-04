@@ -1,13 +1,9 @@
-from ..glyph import MON
-
-
 # heuristic monster types lists
 ONLY_RANGED_SLOW_MONSTERS = ['floating eye', 'blue jelly', 'brown mold', 'gas spore', 'acid blob']
 EXPLODING_MONSTERS = ['yellow light', 'gas spore', 'flaming sphere', 'freezing sphere', 'shocking sphere']
 INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle', 'queen bee']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
-PETRIFYING_MONSTERS = ['cockatrice', 'chickatrice']
 
 
 def is_monster_faster(agent, monster):
@@ -19,27 +15,19 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
-    if monster[3].mname in PETRIFYING_MONSTERS and agent.inventory.items.gloves is None:
-        return True
     if is_dangerous_monster(monster):
-        return agent.blstats.hitpoints <= 16
-    return agent.blstats.hitpoints <= 8
+        return agent.blstats.hitpoints <= 18
+    return agent.blstats.hitpoints <= 12
 
 
 def is_dangerous_monster(monster):
     _, y, x, mon, _ = monster
     is_pet = 'dog' in mon.mname or 'cat' in mon.mname or 'kitten' in mon.mname or 'pony' in mon.mname \
              or 'horse' in mon.mname
-    # hypothesis: treating hostile orcs and elves as dangerous lets the existing retreat,
-    # Elbereth, and wand heuristics prevent the repeated hill-orc/Green-elf deaths.
-    is_hostile_race = getattr(mon, 'mflags2', 0) & (MON.M2_ORC | MON.M2_ELF)
-    # hypothesis: treating experienced, intrinsically strong monsters as dangerous triggers
-    # escape tools for high-damage threats without spending them on low-level strong species.
-    is_strong = getattr(mon, 'mflags2', 0) & MON.M2_STRONG and getattr(mon, 'mlevel', 0) >= 6
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong)
+    return is_pet or mon.mname in INSECTS
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):

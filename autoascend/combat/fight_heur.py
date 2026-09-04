@@ -16,10 +16,11 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
-    # hypothesis: a melee exchange already classified as immediately lethal must
-    # yield to Elbereth or retreat instead of being promoted by the fast-monster bonus.
+    # hypothesis: when the danger model says one more melee exchange can be
+    # fatal, do not let the unconditional melee action override its retreat and
+    # Elbereth options; this prevents low-HP deaths across Valkyrie openings.
     if imminent_death_on_melee(agent, monster):
-        ret -= 40
+        ret -= 20
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
@@ -218,7 +219,10 @@ def elbereth_action(agent, monsters):
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
-        if mon in WEAK_MONSTERS:
+        # hypothesis: comparing the monster name correctly stops harmless foes
+        # from triggering needless Elbereth retreats, conserving turns and food
+        # across every Valkyrie opening.
+        if mon.mname in WEAK_MONSTERS:
             adj_monsters_count += 0.1 * multiplier
             continue
         adj_monsters_count += 1 * multiplier
