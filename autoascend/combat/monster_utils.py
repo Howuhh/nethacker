@@ -26,9 +26,10 @@ def is_dangerous_monster(agent, monster):
     _, y, x, mon, _ = monster
     is_pet = 'dog' in mon.mname or 'cat' in mon.mname or 'kitten' in mon.mname or 'pony' in mon.mname \
              or 'horse' in mon.mname
-    # hypothesis: treating difficulty-3+ monsters as dangerous regardless of hero XL makes the
-    # bot respect their burst damage, which experience gain alone does not neutralize.
-    outmatched = getattr(mon, 'difficulty', 0) >= 3
+    # hypothesis: calibrating the retreat threshold to racial toughness preserves the dwarf's proven
+    # caution while letting human Valkyries finish winnable fights instead of retreating until surrounded.
+    danger_margin = 0 if agent.character.race == agent.character.DWARF else 2
+    outmatched = getattr(mon, 'difficulty', 0) >= agent.blstats.experience_level + danger_margin
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
