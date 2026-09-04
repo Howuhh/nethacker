@@ -404,14 +404,7 @@ class GlobalLogic:
         if not item.is_corpse() or item.comment == 'old':
             return False
 
-        permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
-        # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
-        # retreat, Elbereth, and wand logic available before poison, petrification, or
-        # sliming can end a run across all Valkyrie identities.
-        if ord(permonst.mlet) == MON.S_COCKATRICE:
-            return False
-
-        mname = permonst.mname
+        mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
         if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
                 (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
                 (mname == 'little dog' and item.naming):  # little dogs are always named
@@ -522,9 +515,10 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: descending at XL6 preserves food and prayer safety that
-                # prolonged first-level farming otherwise exhausts before progression.
-                condition = lambda: self.agent.blstats.experience_level >= 6
+                # hypothesis: an XL7 opening still farming after 30k actions has crossed
+                # the point where direct descent beats further level-one action churn.
+                condition = lambda: self.agent.blstats.experience_level >= 8 or (
+                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000)
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
