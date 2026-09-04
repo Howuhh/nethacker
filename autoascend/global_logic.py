@@ -633,12 +633,16 @@ class GlobalLogic:
                 self.follow_guard(),
             ])
             .preempt(self.agent, [
+                # hypothesis: checking emergency recovery before entering the
+                # combat loop lets every Valkyrie drink, pray, or address
+                # fainting at low HP rather than committing to one more melee
+                # exchange first.
+                self.agent.emergency_strategy(),
+            ])
+            .preempt(self.agent, [
                 self.agent.fight2(),
             ])
             .preempt(self.agent, [
                 self.agent.engulfed_fight(),
-            ])
-            .preempt(self.agent, [
-                self.agent.emergency_strategy(),
             ])
         )
