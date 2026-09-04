@@ -33,10 +33,21 @@ def is_dangerous_monster(monster):
     # hypothesis: treating experienced, intrinsically strong monsters as dangerous triggers
     # escape tools for high-damage threats without spending them on low-level strong species.
     is_strong = getattr(mon, 'mflags2', 0) & MON.M2_STRONG and getattr(mon, 'mlevel', 0) >= 6
+    # hypothesis: NetHack's difficulty rating identifies dangerous ordinary melee
+    # monsters (such as rothes) that lack the fast and strong flags, so using it
+    # enables the existing retreat and escape tools across all Valkyries.
+    is_difficult = getattr(mon, 'difficulty', 0) >= 4
+    # hypothesis: treating fast monsters as dangerous makes every Valkyrie start
+    # retreating or using ranged options before rats, bats, and spiders get repeated hits.
+    is_fast = getattr(mon, 'mmove', 0) > 12
+    # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
+    # retreat, Elbereth, and wand logic available before poison, petrification, or
+    # sliming can end a run across all Valkyrie identities.
+    is_irreversible_threat = 'spider' in mon.mname or mon.mname in ('cockatrice', 'chickatrice', 'green slime')
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong)
+    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong) or is_difficult or is_fast or is_irreversible_threat
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):

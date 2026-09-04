@@ -404,7 +404,14 @@ class GlobalLogic:
         if not item.is_corpse() or item.comment == 'old':
             return False
 
-        mname = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF).mname
+        permonst = MON.permonst(item.monster_id + nh.GLYPH_MON_OFF)
+        # hypothesis: treating irreversible-kill threats as dangerous keeps the existing
+        # retreat, Elbereth, and wand logic available before poison, petrification, or
+        # sliming can end a run across all Valkyrie identities.
+        if ord(permonst.mlet) == MON.S_COCKATRICE:
+            return False
+
+        mname = permonst.mname
         if (mname == 'pony' and self.agent.character.role in [Character.KNIGHT, Character.BARBARIAN]) or \
                 (mname == 'kitten' and self.agent.character.role == [Character.BARBARIAN, Character.WIZARD]) or \
                 (mname == 'little dog' and item.naming):  # little dogs are always named
