@@ -1245,6 +1245,9 @@ class Agent:
     def _is_corpse_editable(self, monster_id, age_turn):
         permonst = MON.permonst(monster_id)
 
+        if permonst.mname in combat.monster_utils.PETRIFYING_MONSTERS:
+            return False
+
         # TODO: read intrinsics
         if self.character.race != Character.ORC and permonst.mflags1 & MON.M1_POIS != 0:
             return False
@@ -1458,17 +1461,11 @@ class Agent:
     def eat_from_inventory(self):
         if self.blstats.hunger_state < Hunger.HUNGRY:
             yield False
-        # hypothesis: refusing unknown tins, and screening known tins like corpses,
-        # prevents fatal meals such as chickatrice meat; ordinary food remains
-        # available for hunger recovery.
         for item in flatten_items(self.inventory.items):
             if item.category == nh.FOOD_CLASS and \
                     item.objs[0].name != 'sprig of wolfsbane' and \
                     (not item.is_corpse() or
-                     item.monster_id in [MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']]) and \
-                    (item.objs[0].name != 'tin' or
-                     (item.monster_id is not None and
-                      self._is_corpse_editable(item.monster_id, self.blstats.time))):
+                     item.monster_id in [MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']]):
                 yield True
                 self.inventory.eat(item)
                 return

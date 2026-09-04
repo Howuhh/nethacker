@@ -7,20 +7,21 @@ from scipy import signal
 from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full, \
-    imminent_death_on_melee
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, PETRIFYING_MONSTERS, \
+    consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
 
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
+    # hypothesis: avoiding every cockatrice/chickatrice melee attempt lets the
+    # established movement, Elbereth, and ranged options avert otherwise instant
+    # petrification for each Valkyrie identity.
+    if mon.mname in PETRIFYING_MONSTERS:
+        return -100
+
     ret = 1
-    # hypothesis: when the danger model says one more melee exchange can be
-    # fatal, do not let the unconditional melee action override its retreat and
-    # Elbereth options; this prevents low-HP deaths across Valkyrie openings.
-    if imminent_death_on_melee(agent, monster):
-        ret -= 20
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
@@ -209,6 +210,8 @@ def elbereth_action(agent, monsters):
         return []
     if not agent.can_engrave():
         return []
+    if any(mon[3].mname in PETRIFYING_MONSTERS for mon in monsters):
+        return [(100, ('elbereth',))]
     adj_monsters_count = 0
     for monster in monsters:
         _, my, mx, mon, _ = monster
@@ -219,10 +222,7 @@ def elbereth_action(agent, monsters):
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
-        # hypothesis: comparing the monster name correctly stops harmless foes
-        # from triggering needless Elbereth retreats, conserving turns and food
-        # across every Valkyrie opening.
-        if mon.mname in WEAK_MONSTERS:
+        if mon in WEAK_MONSTERS:
             adj_monsters_count += 0.1 * multiplier
             continue
         adj_monsters_count += 1 * multiplier
