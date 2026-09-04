@@ -33,10 +33,13 @@ def is_dangerous_monster(monster):
     # hypothesis: treating experienced, intrinsically strong monsters as dangerous triggers
     # escape tools for high-damage threats without spending them on low-level strong species.
     is_strong = getattr(mon, 'mflags2', 0) & MON.M2_STRONG and getattr(mon, 'mlevel', 0) >= 6
+    # hypothesis: treating fast monsters as dangerous makes every Valkyrie start
+    # retreating or using ranged options before rats, bats, and spiders get repeated hits.
+    is_fast = getattr(mon, 'mmove', 0) > 12
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
-    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong)
+    return is_pet or mon.mname in INSECTS or bool(is_hostile_race) or bool(is_strong) or is_fast
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):
