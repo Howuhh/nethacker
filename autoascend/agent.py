@@ -1417,7 +1417,7 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                # hypothesis: drinking identified healing below half health prevents
+                # hypothesis: drinking identified healing while below half health prevents
                 # routine melee deaths before they become unrecoverable for every Valkyrie.
                 (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
@@ -1435,8 +1435,10 @@ class Agent:
 
         if (
                 (self.is_safe_to_pray(500) and
-                 (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
-                  * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
+                 # hypothesis: praying at one-third health spends an available emergency heal
+                 # before routine melee damage can turn a recoverable fight into death.
+                 (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or
+                  self.blstats.hitpoints < 6))
                 or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
@@ -1460,17 +1462,11 @@ class Agent:
     def eat_from_inventory(self):
         if self.blstats.hunger_state < Hunger.HUNGRY:
             yield False
-        # hypothesis: refusing unknown tins, and screening known tins like corpses,
-        # prevents fatal meals such as chickatrice meat; ordinary food remains
-        # available for hunger recovery.
         for item in flatten_items(self.inventory.items):
             if item.category == nh.FOOD_CLASS and \
                     item.objs[0].name != 'sprig of wolfsbane' and \
                     (not item.is_corpse() or
-                     item.monster_id in [MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']]) and \
-                    (item.objs[0].name != 'tin' or
-                     (item.monster_id is not None and
-                      self._is_corpse_editable(item.monster_id, self.blstats.time))):
+                     item.monster_id in [MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']]):
                 yield True
                 self.inventory.eat(item)
                 return

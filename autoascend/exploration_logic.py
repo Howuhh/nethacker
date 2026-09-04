@@ -430,7 +430,10 @@ class ExplorationLogic:
                                255, 255 * bool(to_search[target_y, target_x])),
                         is_path=True))
                     if to_search[target_y, target_x] and not to_visit[target_y, target_x]:
-                        self.agent.search(5)
+                        # hypothesis: splitting counted searches while wounded lets combat and emergency
+                        # preemptions react before a newly arrived monster gets several unanswered attacks.
+                        safe_search_hp = max(16, self.agent.blstats.max_hitpoints / 2)
+                        self.agent.search(1 if self.agent.blstats.hitpoints <= safe_search_hp else 5)
 
             assert search_prio_limit is not None
 
