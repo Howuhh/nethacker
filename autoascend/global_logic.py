@@ -101,6 +101,13 @@ class ItemPriority(ItemPriorityBase):
                            key=lambda x: -x.nutrition_per_weight() - 1000 * (x.objs[0].name == 'sprig of wolfsbane')):
             add_item(item)
 
+        # hypothesis: immediately curing petrification with a reserved lizard corpse,
+        # or safe prayer when none is available, prevents late-run cockatrice deaths
+        # across identities.
+        for item in filter(lambda i: i.is_corpse() and
+                           i.monster_id == MON.id_from_name('lizard'), items):
+            add_item(item, count=1)
+
         if self._take_sacrificial_corpses:
             for item in filter(self.agent.global_logic.can_sacrify, items):
                 add_item(item)

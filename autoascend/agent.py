@@ -1322,6 +1322,8 @@ class Agent:
                 yield False
             corpse_mapping = level.corpses_to_eat[y, x]
             for monster_id, corpse_age in corpse_mapping.items():
+                if monster_id == MON.id_from_name('lizard'):
+                    continue
                 if level.shop[y, x]:
                     continue
                 if self._is_corpse_editable(monster_id, corpse_age):
@@ -1330,6 +1332,8 @@ class Agent:
         else:
             for (y, x), corpse_mapping in level.corpses_to_eat.items():
                 for monster_id, corpse_age in corpse_mapping.items():
+                    if monster_id == MON.id_from_name('lizard'):
+                        continue
                     if level.shop[y, x]:
                         continue
                     if self._is_corpse_editable(monster_id, corpse_age):
@@ -1404,13 +1408,18 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
-        # hypothesis: praying at the late stoning warning lets the existing
-        # cooldown-aware divine cure prevent otherwise irreversible petrification.
-        if self.blstats.prop_mask & nh.BL_MASK_STONE and \
-                'Your limbs are stiffening' in self.message and self.is_safe_to_pray():
-            yield True
-            self.pray()
-            return
+        if self.blstats.prop_mask & nh.BL_MASK_STONE:
+            lizard_corpses = [item for item in flatten_items(self.inventory.items)
+                              if item.is_corpse() and
+                              item.monster_id == MON.id_from_name('lizard')]
+            if lizard_corpses:
+                yield True
+                self.inventory.eat(lizard_corpses[0])
+                return
+            if self.is_safe_to_pray():
+                yield True
+                self.pray()
+                return
 
         # if self.should_cast_extra_heal():
         #     yield True
@@ -1451,10 +1460,10 @@ class Agent:
             self.pray()
             return
 
-        # hypothesis: entering the reusable Elbereth refuge at one-quarter health
-        # prevents lethal damage spikes without consuming prayer across all identities.
+        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
+        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
         if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-                (self.blstats.hitpoints < 1 / 4 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
+                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
             yield True
             self.engrave('Elbereth')
             for _ in range(8):
