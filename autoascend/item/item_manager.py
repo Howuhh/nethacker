@@ -265,8 +265,8 @@ class ItemManager:
             r'( ([+-]\d+))? '
             r"([a-zA-z0-9-!'# ]+)"
             r'( \(([0-9]+:[0-9]+|no charge)\))?'
-            # hypothesis: parsing standard worn-ring and variable-weight glob annotations prevents
-            # otherwise productive deep runs from terminating when those externally-created states appear.
+            # hypothesis: parsing normal worn-ring and variable-weight annotations keeps
+            # inventory updates from aborting otherwise viable runs across all Valkyries.
             r'( \(((?:[0-9]+ aum, no charge)|[a-zA-Z0-9; ]+(, flickering|, gleaming|, glimmering)?[a-zA-Z0-9; ]*)\))?'
             r'( \((for sale|unpaid), (\d+ aum, )?((\d+)[a-zA-Z- ]+|no charge)\))?'
             r'$',
