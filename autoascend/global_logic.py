@@ -101,8 +101,6 @@ class ItemPriority(ItemPriorityBase):
                            key=lambda x: -x.nutrition_per_weight() - 1000 * (x.objs[0].name == 'sprig of wolfsbane')):
             add_item(item)
 
-        # hypothesis: carrying a lizard antidote for the weakest (dwarven) Valkyrie
-        # prevents its repeated stoning deaths without perturbing either human.
         if self.agent.character.race == Character.DWARF:
             for item in items:
                 if item.is_corpse() and item.monster_id == MON.id_from_name('lizard'):
