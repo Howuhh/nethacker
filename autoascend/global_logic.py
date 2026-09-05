@@ -163,9 +163,6 @@ class GlobalLogic:
 
         self._got_artifact = False
 
-        self._first_level_last_xl = None
-        self._first_level_last_xl_turn = None
-
     def update(self):
         if not self.agent.character.prop.hallu:
             if utils.isin(self.agent.glyphs, G.ORACLE).any():
@@ -518,15 +515,7 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: ending first-floor farming after 5500 turns without an XL gain
-                # avoids respawn attrition while preserving productive runs toward the XL 8 goal.
-                def condition():
-                    xl = self.agent.blstats.experience_level
-                    if self._first_level_last_xl != xl:
-                        self._first_level_last_xl = xl
-                        self._first_level_last_xl_turn = self.agent.blstats.time
-                    return xl >= 8 or (xl >= 6 and self.agent.blstats.time -
-                                       self._first_level_last_xl_turn >= 5500)
+                condition = lambda: self.agent.blstats.experience_level >= 8
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
