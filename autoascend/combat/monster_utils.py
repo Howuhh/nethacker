@@ -19,9 +19,7 @@ def is_monster_faster(agent, monster):
 
 def imminent_death_on_melee(agent, monster):
     if is_dangerous_monster(monster):
-        # hypothesis: delaying retreat from broadly classified dangerous monsters
-        # until 12 HP prevents futile avoidance loops while retaining a safety buffer.
-        return agent.blstats.hitpoints <= 12
+        return agent.blstats.hitpoints <= 16
     return agent.blstats.hitpoints <= 8
 
 

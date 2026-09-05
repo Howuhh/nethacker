@@ -75,6 +75,8 @@ class G:  # Glyphs
 
     BARS = frozenset({SS.S_bars})
 
+    LIQUID = frozenset({SS.S_pool, SS.S_lava})
+
     MONS = frozenset(MON.ALL_MONS)
     PETS = frozenset(MON.ALL_PETS)
     WARNING = frozenset({nh.GLYPH_WARNING_OFF + i for i in range(nh.WARNCOUNT)})
