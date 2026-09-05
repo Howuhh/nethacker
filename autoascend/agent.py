@@ -1284,8 +1284,6 @@ class Agent:
         # petrification
         if ord(permonst.mlet) == MON.S_COCKATRICE or monster_id == MON.id_from_name('Medusa'):
             return False
-        if monster_id == MON.id_from_name('lizard') and self.character.race == Character.DWARF:
-            return False
 
         # temporary prevents movement
         if ord(permonst.mlet) == MON.S_MIMIC:
@@ -1406,15 +1404,8 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
-        # hypothesis: reserving a lizard antidote for dwarven Valkyries prevents their
-        # repeated stoning deaths without perturbing either human identity's food use.
-        lizard_corpses = [item for item in flatten_items(self.inventory.items)
-                          if item.is_corpse() and item.monster_id == MON.id_from_name('lizard')]
-        if self.blstats.prop_mask & nh.BL_MASK_STONE and lizard_corpses:
-            yield True
-            self.inventory.eat(lizard_corpses[0])
-            return
-
+        # hypothesis: praying at the late stoning warning lets the existing
+        # cooldown-aware divine cure prevent otherwise irreversible petrification.
         if self.blstats.prop_mask & nh.BL_MASK_STONE and \
                 'Your limbs are stiffening' in self.message and self.is_safe_to_pray():
             yield True

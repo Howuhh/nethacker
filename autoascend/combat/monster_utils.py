@@ -18,6 +18,11 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
+    # hypothesis: treating petrifier contact as lethal regardless of current HP
+    # makes every Valkyrie preserve distance instead of approaching a threat that
+    # bypasses its otherwise strong hit-point buffer.
+    if monster[3].mname in ('cockatrice', 'chickatrice'):
+        return True
     if is_dangerous_monster(monster):
         return agent.blstats.hitpoints <= 16
     return agent.blstats.hitpoints <= 8
