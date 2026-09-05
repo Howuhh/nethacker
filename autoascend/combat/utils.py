@@ -34,8 +34,6 @@ def action_str(agent, action):
         return f'{priority}z{letter}:{a[1]},{a[2]}'
     elif a[0] == 'elbereth':
         return f'{priority:.1f}e'
-    elif a[0] == 'quaff_healing':
-        return f'{priority}qheal'
     elif a[0] == 'wait':
         return f'{priority:.1f}w'
     elif a[0] == 'go_to':

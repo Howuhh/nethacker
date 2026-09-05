@@ -62,6 +62,7 @@ class Item:
         return not (
                 (isinstance(self.objs[0], (O.Weapon, O.WepTool)) and self.status == Item.CURSED and self.equipped) or
                 (isinstance(self.objs[0], O.Armor) and self.equipped) or
+                (isinstance(self.objs[0], O.Ring) and self.equipped) or
                 (self.is_unambiguous() and self.object == O.from_name('loadstone') and self.status == Item.CURSED) or
                 (self.category == nh.BALL_CLASS and self.equipped)
         )
@@ -218,8 +219,10 @@ class Item:
         if self.uses == 'no charges':
             # TODO: is it right ?
             return False
+        # hypothesis: allowing identified sleep wands into the existing emergency
+        # ray logic gives every Valkyrie a nonlethal escape from dangerous attackers.
         if self.objs[0] == O.from_name('sleep', nh.WAND_CLASS):
-            return False
+            return True
         if self.objs[0] == O.from_name('digging', nh.WAND_CLASS):
             return False
         return True

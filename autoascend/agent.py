@@ -1191,10 +1191,6 @@ class Agent:
             assert self.inventory.engraving_below_me.lower() != 'elbereth'
             self.engrave("Elbereth")
             return wait_counter
-        elif best_action[0] == 'quaff_healing':
-            _, potion = best_action
-            self.inventory.quaff(potion)
-            return wait_counter
         elif best_action[0] == 'wait':
             assert self.inventory.engraving_below_me.lower() == 'elbereth'
             self.stats_logger.log_event('wait_in_fight')
@@ -1421,7 +1417,9 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
+                # hypothesis: drinking identified healing while below half health prevents
+                # routine melee deaths before they become unrecoverable for every Valkyrie.
+                (self.blstats.hitpoints < 1 / 2 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 8) and items
         ):
             yield True
@@ -1445,15 +1443,18 @@ class Agent:
             self.pray()
             return
 
-        # if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-        #         (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
-        #     yield True
-        #     self.engrave('Elbereth')
-        #     for _ in range(8):
-        #         if self.inventory.engraving_below_me.lower() != 'elbereth':
-        #             break
-        #         self.direction('.')
-        #     return
+        # hypothesis: entering an Elbereth refuge at one-third health prevents
+        # routine melee deaths across all Valkyries before the existing one-hit
+        # emergency threshold becomes too late to recover.
+        if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
+                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or self.blstats.hitpoints < 8):
+            yield True
+            self.engrave('Elbereth')
+            for _ in range(8):
+                if self.inventory.engraving_below_me.lower() != 'elbereth':
+                    break
+                self.direction('.')
+            return
 
         yield False
 
@@ -1462,19 +1463,9 @@ class Agent:
     def eat_from_inventory(self):
         if self.blstats.hunger_state < Hunger.HUNGRY:
             yield False
-        foods = list(flatten_items(self.inventory.items))
-        # hypothesis: deferring slow-to-open tins while ready-to-eat food is available prevents weak heroes,
-        # especially Tourists, from giving nearby monsters many free attacks without sacrificing emergency food.
-        foods.sort(key=lambda item: item.is_unambiguous() and item.object.name == 'tin')
-        for item in foods:
-            # hypothesis: refusing nutritionally tiny eggs (whose species is often hidden) and identified
-            # cockatrice tins as hunger food prevents deterministic petrification without sacrificing useful food.
-            petrifying_food = item.is_unambiguous() and (item.object.name == 'egg' or (
-                item.object.name == 'tin' and item.monster_id is not None and
-                ord(MON.permonst(item.monster_id).mlet) == MON.S_COCKATRICE))
+        for item in flatten_items(self.inventory.items):
             if item.category == nh.FOOD_CLASS and \
                     item.objs[0].name != 'sprig of wolfsbane' and \
-                    not petrifying_food and \
                     (not item.is_corpse() or
                      item.monster_id in [MON.from_name(n) - nh.GLYPH_MON_OFF for n in ['lizard', 'lichen']]):
                 yield True

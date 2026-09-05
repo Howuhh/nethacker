@@ -3,10 +3,8 @@ from itertools import product
 
 import numpy as np
 from scipy import signal
-import nle.nethack as nh
 
 from ..glyph import G
-from ..item import flatten_items
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
@@ -16,9 +14,12 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
+    # hypothesis: refusing voluntary melee against petrifying monsters prevents
+    # instant cockatrice/chickatrice deaths, leaving movement, Elbereth, and
+    # ranged attacks available to every Valkyrie.
+    if mon.mname in ('cockatrice', 'chickatrice'):
+        return -100
     ret = 1
-    if mon.mname == 'grid bug' and agent.blstats.hitpoints <= 4:
-        ret -= 20
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
@@ -188,7 +189,7 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 _, y, x, mon, _ = monster
                 if mon.mname in WEAK_MONSTERS:
                     priority += min(p, 1) * 1
-                elif is_dangerous_monster(agent, monster):
+                elif is_dangerous_monster(monster):
                     priority += p * 25
                 else:
                     priority += min(p, 1) * 10
@@ -207,6 +208,12 @@ def elbereth_action(agent, monsters):
         return []
     if not agent.can_engrave():
         return []
+    # hypothesis: a petrifier is a lethal exception to the usual HP-based
+    # retreat rule, so an immediate refuge prevents forced melee deaths.
+    if any(adjacent((my, mx), (agent.blstats.y, agent.blstats.x)) and
+           mon.mname in ('cockatrice', 'chickatrice')
+           for _, my, mx, mon, _ in monsters):
+        return [(30, ('elbereth',))]
     adj_monsters_count = 0
     for monster in monsters:
         _, my, mx, mon, _ = monster
@@ -217,18 +224,18 @@ def elbereth_action(agent, monsters):
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
-        if mon in WEAK_MONSTERS:
+        # hypothesis: recognizing weak monsters by name avoids needless Elbereth
+        # retreats, preserving turns and nutrition for progress on every Valkyrie.
+        if mon.mname in WEAK_MONSTERS:
             adj_monsters_count += 0.1 * multiplier
             continue
         adj_monsters_count += 1 * multiplier
-        if is_dangerous_monster(agent, monster):
+        if is_dangerous_monster(monster):
             adj_monsters_count += 2 * multiplier
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        # hypothesis: letting Elbereth beat continued melee once an adjacent threat has removed roughly half
-        # the hero's HP will save fragile builds before their existing emergency logic reaches one-hit range.
-        return [(-5 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
+        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []
 
 
@@ -242,15 +249,6 @@ def wait_action(agent, monsters):
 
 def get_available_actions(agent, monsters):
     actions = []
-
-    healing_potions = [item for item in flatten_items(agent.inventory.items)
-                       if item.is_unambiguous() and item.category == nh.POTION_CLASS and
-                       item.object.name in ('healing', 'extra healing', 'full healing')]
-    # hypothesis: exposing known healing inside the encounter-long combat loop prevents
-    # all Valkyries from dying before the normal emergency strategy can regain control.
-    if healing_potions and (agent.blstats.hitpoints < agent.blstats.max_hitpoints / 3 or
-                            agent.blstats.hitpoints < 8):
-        actions.append((100, ('quaff_healing', healing_potions[0])))
 
     # melee attack actions
     for monster in monsters:
