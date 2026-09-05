@@ -8,7 +8,7 @@ from nle.nethack import actions as A
 from . import utils
 from .character import Character
 from .exceptions import AgentPanic
-from .glyph import G, C, SS
+from .glyph import G, C, SS, Hunger
 from .level import Level
 from .strategy import Strategy
 
@@ -430,7 +430,13 @@ class ExplorationLogic:
                                255, 255 * bool(to_search[target_y, target_x])),
                         is_path=True))
                     if to_search[target_y, target_x] and not to_visit[target_y, target_x]:
-                        self.agent.search(5)
+                        # hypothesis: splitting counted searches for wounded heroes, and for weak
+                        # early heroes, prevents unanswered attacks and crossing into starvation.
+                        safe_search_hp = max(16, self.agent.blstats.max_hitpoints / 2)
+                        unsafe_to_search = self.agent.blstats.hitpoints <= safe_search_hp or \
+                            (self.agent.blstats.hunger_state >= Hunger.WEAK and
+                             self.agent.blstats.experience_level <= 5)
+                        self.agent.search(1 if unsafe_to_search else 5)
 
             assert search_prio_limit is not None
 
