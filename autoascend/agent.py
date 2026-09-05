@@ -1443,11 +1443,10 @@ class Agent:
             self.pray()
             return
 
-        # hypothesis: entering an Elbereth refuge at one-third health prevents
-        # routine melee deaths across all Valkyries before the existing one-hit
-        # emergency threshold becomes too late to recover.
+        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
+        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
         if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints or self.blstats.hitpoints < 8):
+                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
             yield True
             self.engrave('Elbereth')
             for _ in range(8):

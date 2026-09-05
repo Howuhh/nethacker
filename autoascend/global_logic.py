@@ -525,7 +525,13 @@ class GlobalLogic:
                 # hypothesis: an XL7 opening still farming after 30k actions has crossed
                 # the point where direct descent beats further level-one action churn.
                 condition = lambda: self.agent.blstats.experience_level >= 8 or (
-                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000)
+                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000) or (
+                    # hypothesis: leaving the first-floor farm once an experienced
+                    # Valkyrie is weak and out of carried nutrition prevents starvation
+                    # while preserving normal preparation for provisioned characters.
+                    self.agent.blstats.experience_level >= 5 and
+                    self.agent.blstats.hunger_state >= Hunger.WEAK and
+                    self.agent.inventory.items.total_nutrition() == 0)
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
