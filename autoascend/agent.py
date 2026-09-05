@@ -1284,8 +1284,6 @@ class Agent:
         # petrification
         if ord(permonst.mlet) == MON.S_COCKATRICE or monster_id == MON.id_from_name('Medusa'):
             return False
-        if monster_id == MON.id_from_name('lizard') and self.character.race == Character.DWARF:
-            return False
 
         # temporary prevents movement
         if ord(permonst.mlet) == MON.S_MIMIC:
@@ -1406,20 +1404,21 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
-        # hypothesis: reserving a lizard antidote for dwarven Valkyries prevents their
-        # repeated stoning deaths without perturbing either human identity's food use.
-        lizard_corpses = [item for item in flatten_items(self.inventory.items)
-                          if item.is_corpse() and item.monster_id == MON.id_from_name('lizard')]
-        if self.blstats.prop_mask & nh.BL_MASK_STONE and lizard_corpses:
-            yield True
-            self.inventory.eat(lizard_corpses[0])
-            return
-
-        if self.blstats.prop_mask & nh.BL_MASK_STONE and \
-                'Your limbs are stiffening' in self.message and self.is_safe_to_pray():
-            yield True
-            self.pray()
-            return
+        # A lizard corpse cures stoning immediately.  Prayer is the renewable fallback
+        # when no antidote has been found and the prayer timeout is known to be safe.
+        if self.character.race == Character.DWARF and \
+                self.blstats.prop_mask & nh.BL_MASK_STONE:
+            lizard_corpses = [item for item in flatten_items(self.inventory.items)
+                              if item.is_corpse() and
+                              item.monster_id == MON.id_from_name('lizard')]
+            if lizard_corpses:
+                yield True
+                self.inventory.eat(lizard_corpses[0])
+                return
+            if self.is_safe_to_pray():
+                yield True
+                self.pray()
+                return
 
         # if self.should_cast_extra_heal():
         #     yield True
@@ -1450,22 +1449,20 @@ class Agent:
             self.inventory.quaff(items[0])
             return
 
-        # hypothesis: praying with fewer than eight hit points gives every
-        # Valkyrie enough margin to survive ordinary multi-hit damage spikes.
         if (
                 (self.is_safe_to_pray(500) and
                  (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
-                  * self.blstats.max_hitpoints or self.blstats.hitpoints < 8))
+                  * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
                 or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
             self.pray()
             return
 
-        # hypothesis: entering the reusable Elbereth refuge at one-quarter health
-        # prevents lethal damage spikes without consuming prayer across all identities.
+        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
+        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
         if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-                (self.blstats.hitpoints < 1 / 4 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
+                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
             yield True
             self.engrave('Elbereth')
             for _ in range(8):
