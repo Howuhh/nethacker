@@ -1404,14 +1404,6 @@ class Agent:
     @Strategy.wrap
     def emergency_strategy(self):
 
-        # hypothesis: praying at the late stoning warning lets the existing
-        # cooldown-aware divine cure prevent otherwise irreversible petrification.
-        if self.blstats.prop_mask & nh.BL_MASK_STONE and \
-                'Your limbs are stiffening' in self.message and self.is_safe_to_pray():
-            yield True
-            self.pray()
-            return
-
         # if self.should_cast_extra_heal():
         #     yield True
         #     self.cast('extra healing', direction=(0, 0))
@@ -1451,10 +1443,10 @@ class Agent:
             self.pray()
             return
 
-        # hypothesis: entering the reusable Elbereth refuge at one-quarter health
-        # prevents lethal damage spikes without consuming prayer across all identities.
+        # hypothesis: engraving Elbereth when an emergency heal is unavailable gives all
+        # Valkyries a low-HP refuge instead of continuing a lethal melee exchange.
         if self.inventory.engraving_below_me.lower() != 'elbereth' and self.can_engrave() and \
-                (self.blstats.hitpoints < 1 / 4 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
+                (self.blstats.hitpoints < 1 / 5 * self.blstats.max_hitpoints or self.blstats.hitpoints < 5):
             yield True
             self.engrave('Elbereth')
             for _ in range(8):
