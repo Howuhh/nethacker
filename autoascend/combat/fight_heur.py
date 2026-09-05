@@ -254,11 +254,6 @@ def get_available_actions(agent, monsters):
     for monster in monsters:
         _, y, x, mon, _ = monster
         if adjacent((y, x), (agent.blstats.y, agent.blstats.x)):
-            # hypothesis: removing petrifier melee from the action set prevents
-            # stuck-exploration's forced-attack mode from overriding the normal
-            # avoidance priority, while preserving ranged and escape options.
-            if mon.mname in ('cockatrice', 'chickatrice'):
-                continue
             priority = melee_monster_priority(agent, monsters, monster)
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100
@@ -291,11 +286,14 @@ def get_available_actions(agent, monsters):
 
 
 def decide_what_to_pickup(agent):
+    # hypothesis: excluding shop merchandise from combat ammunition pickup prevents
+    # accidental shoplifting deaths without changing ordinary Valkyrie combat.
     projectiles_below_me = [i for i in agent.inventory.items_below_me
-                            if i.is_thrown_projectile() or i.is_fired_projectile()]
+                            if i.shop_status == i.NOT_SHOP and
+                            (i.is_thrown_projectile() or i.is_fired_projectile())]
     my_launcher, ammo = agent.inventory.get_best_ranged_set(additional_ammo=[i for i in projectiles_below_me])
     to_pickup = []
-    for item in agent.inventory.items_below_me:
+    for item in projectiles_below_me:
         if item.is_thrown_projectile() or (my_launcher is not None and item.is_fired_projectile(launcher=my_launcher)):
             to_pickup.append(item)
     return to_pickup
