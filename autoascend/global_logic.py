@@ -101,6 +101,11 @@ class ItemPriority(ItemPriorityBase):
                            key=lambda x: -x.nutrition_per_weight() - 1000 * (x.objs[0].name == 'sprig of wolfsbane')):
             add_item(item)
 
+        if self.agent.character.race == Character.DWARF:
+            for item in items:
+                if item.is_corpse() and item.monster_id == MON.id_from_name('lizard'):
+                    add_item(item)
+
         if self._take_sacrificial_corpses:
             for item in filter(self.agent.global_logic.can_sacrify, items):
                 add_item(item)
@@ -525,13 +530,7 @@ class GlobalLogic:
                 # hypothesis: an XL7 opening still farming after 30k actions has crossed
                 # the point where direct descent beats further level-one action churn.
                 condition = lambda: self.agent.blstats.experience_level >= 8 or (
-                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000) or (
-                    # hypothesis: leaving the first-floor farm once an experienced
-                    # Valkyrie is weak and out of carried nutrition prevents starvation
-                    # while preserving normal preparation for provisioned characters.
-                    self.agent.blstats.experience_level >= 5 and
-                    self.agent.blstats.hunger_state >= Hunger.WEAK and
-                    self.agent.inventory.items.total_nutrition() == 0)
+                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000)
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
