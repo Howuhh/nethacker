@@ -1453,9 +1453,12 @@ class Agent:
             return
 
         if (
+                # hypothesis: praying before HP enters one-hit range lets every
+                # Valkyrie survive ordinary melee damage spikes that the current
+                # sub-6-HP emergency threshold reacts to too late.
                 (self.is_safe_to_pray(500) and
-                 (self.blstats.hitpoints < 1 / (5 if self.blstats.experience_level < 6 else 6)
-                  * self.blstats.max_hitpoints or self.blstats.hitpoints < 6))
+                 (self.blstats.hitpoints < 1 / 4 * self.blstats.max_hitpoints
+                  or self.blstats.hitpoints < 9))
                 or (self.is_safe_to_pray(400) and self.blstats.hunger_state >= Hunger.FAINTING)
         ):
             yield True
