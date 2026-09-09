@@ -7,7 +7,8 @@ from scipy import signal
 from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full, \
+    is_footrice, can_safely_melee_footrice
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -221,6 +222,13 @@ def elbereth_action(agent, monsters):
             adj_monsters_count += 2 * multiplier
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
+    unsafe_adjacent_footrice = any(
+        is_footrice(monster) and not can_safely_melee_footrice(agent) and
+        adjacent((monster[1], monster[2]), (agent.blstats.y, agent.blstats.x))
+        for monster in monsters
+    )
+    if unsafe_adjacent_footrice:
+        return [(50, ('elbereth',))]
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
         return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []
@@ -241,6 +249,11 @@ def get_available_actions(agent, monsters):
     for monster in monsters:
         _, y, x, mon, _ = monster
         if adjacent((y, x), (agent.blstats.y, agent.blstats.x)):
+            # Do not turn an accidental unarmed monk punch into instant death.
+            # Movement priorities provide the normal recovery; Elbereth above
+            # is the fallback when every exit is blocked.
+            if is_footrice(monster) and not can_safely_melee_footrice(agent):
+                continue
             priority = melee_monster_priority(agent, monsters, monster)
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100

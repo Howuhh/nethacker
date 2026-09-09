@@ -1,7 +1,7 @@
 from ..utils import adjacent
 from . import utils
 from .monster_utils import WEAK_MONSTERS, ONLY_RANGED_SLOW_MONSTERS, consider_melee_only_ranged_if_hp_full, \
-    imminent_death_on_melee, EXPLODING_MONSTERS, WEIRD_MONSTERS
+    imminent_death_on_melee, EXPLODING_MONSTERS, WEIRD_MONSTERS, is_footrice, can_safely_melee_footrice
 
 
 def _draw_around(priority, y, x, value, radius=1, operation='add'):
@@ -44,7 +44,11 @@ def draw_monster_priority_positive(agent, monster, priority, walkable):
     # don't move into the monster
     priority[y, x] = float('nan')
 
-    if mon.mname in WEAK_MONSTERS:
+    if is_footrice(monster) and not can_safely_melee_footrice(agent):
+        # It is a ranged/escape problem, not a target to approach.
+        if len(agent.inventory.get_ranged_combinations()):
+            _draw_ranged(priority, y, x, 2, walkable, radius=7, operation='max')
+    elif mon.mname in WEAK_MONSTERS:
         # weak monster - freely engage in melee
         _draw_around(priority, y, x, 2, radius=1, operation='max')
         _draw_around(priority, y, x, 1, radius=2, operation='max')
@@ -82,7 +86,15 @@ def draw_monster_priority_positive(agent, monster, priority, walkable):
 def draw_monster_priority_negative(agent, monster, priority, walkable):
     _, y, x, mon, _ = monster
 
-    if imminent_death_on_melee(agent, monster) and not mon.mname in WEAK_MONSTERS \
+    # hypothesis: an unprotected monk's bare-handed cockatrice attack can
+    # petrify him instantly, so retreat until ranged, Elbereth, or protected
+    # melee is available.
+    if is_footrice(monster) and not can_safely_melee_footrice(agent):
+        _draw_around(priority, y, x, -100, radius=1)
+        _draw_around(priority, y, x, -25, radius=2)
+        if not len(agent.inventory.get_ranged_combinations()):
+            _draw_ranged(priority, y, x, -5, walkable, radius=7)
+    elif imminent_death_on_melee(agent, monster) and not mon.mname in WEAK_MONSTERS \
             and not mon.mname in ONLY_RANGED_SLOW_MONSTERS:
         if mon.mmove <= 12:
             _draw_around(priority, y, x, -10, radius=1)
