@@ -1,4 +1,5 @@
 import contextlib
+import os
 import re
 from collections import namedtuple, Counter, defaultdict
 from functools import partial
@@ -368,6 +369,18 @@ class Agent:
         self.step_count += 1
         self.score += reward
 
+        # Optional replay aid.  Kept off in arena runs, but records the command
+        # and the immediately preceding state when diagnosing deterministic seeds.
+        trace_path = os.environ.get('AUTOASCEND_TRACE')
+        if trace_path and self.step_count <= int(os.environ.get('AUTOASCEND_TRACE_LIMIT', '50000')):
+            with open(trace_path, 'a', encoding='utf-8') as trace:
+                old = getattr(self, 'blstats', None)
+                trace.write(f"{self.step_count}\t{int(action)}\t"
+                            f"{getattr(old, 'time', '?')}\t{getattr(old, 'depth', '?')}\t"
+                            f"{getattr(old, 'hitpoints', '?')}/{getattr(old, 'max_hitpoints', '?')}\t"
+                            f"gold={getattr(old, 'gold', '?')}\t"
+                            f"{self.message[-180:]!r}\n")
+
         self.cursor_pos = (observation['tty_cursor'][0] - 1, observation['tty_cursor'][1])
 
         if hasattr(self, 'blstats'):
@@ -420,13 +433,6 @@ class Agent:
             return
 
         if b'[yn]' in bytes(observation['tty_chars'].reshape(-1)):
-            # hypothesis: exploration sometimes steps into a peaceful creature.
-            # NetHack asks before making it hostile; answering yes turned the
-            # seed-1 monk into a shopkeeper fight it cannot win.  This is not a
-            # normal command confirmation, so reject only this explicit prompt.
-            if 'really attack' in self.message.lower():
-                self.type_text('n')
-                return
             self.type_text('y')
             return
 
