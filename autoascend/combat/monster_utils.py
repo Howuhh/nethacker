@@ -1,6 +1,3 @@
-import nle.nethack as nh
-
-
 # heuristic monster types lists
 ONLY_RANGED_SLOW_MONSTERS = ['floating eye', 'blue jelly', 'brown mold', 'gas spore', 'acid blob']
 EXPLODING_MONSTERS = ['yellow light', 'gas spore', 'flaming sphere', 'freezing sphere', 'shocking sphere']
@@ -11,22 +8,6 @@ HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
                         'tiger', 'winter wolf']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
-# A monk normally fights bare-handed. A footrice's passive stoning attack is
-# therefore qualitatively different from ordinary HP damage.
-FOOTRICES = ['cockatrice', 'chickatrice']
-
-
-def is_footrice(monster):
-    return monster[3].mname in FOOTRICES
-
-
-def can_safely_melee_footrice(agent):
-    """True only when an attack will not make bare-skin contact."""
-    if agent.character.prop.polymorph:
-        return False
-    if agent.blstats.prop_mask & nh.BL_MASK_STONE:
-        return True
-    return agent.inventory.items.gloves is not None or agent.inventory.items.main_hand is not None
 
 
 def is_monster_faster(agent, monster):

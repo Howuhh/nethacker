@@ -420,12 +420,6 @@ class Agent:
             return
 
         if b'[yn]' in bytes(observation['tty_chars'].reshape(-1)):
-            # A generic yes/no prompt is normally accepted to keep legacy menu
-            # flows moving. "Really attack ...?" is different: accepting it
-            # turns a peaceful shopkeeper hostile (a direct seed-1 failure).
-            if 'really attack' in self.message.lower():
-                self.type_text('n')
-                return
             self.type_text('y')
             return
 
