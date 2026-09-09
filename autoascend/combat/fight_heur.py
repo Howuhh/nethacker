@@ -7,8 +7,7 @@ from scipy import signal
 from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, COCKATRICE, \
-    consider_melee_only_ranged_if_hp_full
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -22,9 +21,6 @@ def melee_monster_priority(agent, monsters, monster):
         ret -= 6
     if mon.mname in EXPLODING_MONSTERS:
         ret -= 17
-    if mon.mname in COCKATRICE and not wielding_melee_weapon(agent):
-        # Equip a weapon if one exists; otherwise do not make a contact attack.
-        ret -= 100
     if 'were' in mon.mname:
         ret += 1
     # if not wielding_melee_weapon(agent):
@@ -208,15 +204,12 @@ def elbereth_action(agent, monsters):
     if not agent.can_engrave():
         return []
     adj_monsters_count = 0
-    cockatrice_contact = False
     for monster in monsters:
         _, my, mx, mon, _ = monster
         if mon.mname in ONLY_RANGED_SLOW_MONSTERS:
             continue
         if not adjacent((my, mx), (agent.blstats.y, agent.blstats.x)):
             continue
-        if mon.mname in COCKATRICE and not wielding_melee_weapon(agent):
-            cockatrice_contact = True
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
@@ -228,10 +221,6 @@ def elbereth_action(agent, monsters):
             adj_monsters_count += 2 * multiplier
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
-    # hypothesis: engraving before an unarmed cockatrice contact prevents
-    # petrification while still allowing the ordinary melee route when armed.
-    if cockatrice_contact:
-        return [(-5, ('elbereth',))]
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
         return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []

@@ -6,7 +6,6 @@ INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle',
 # exchange, even though they are not fast or insects.
 HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
                         'tiger', 'winter wolf']
-COCKATRICE = ['cockatrice', 'chickatrice']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
 
@@ -19,10 +18,6 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
-    # hypothesis: treating cockatrices as an unconditional melee hazard keeps
-    # the monk from being petrified by bare-handed attacks or contact.
-    if monster[3].mname in COCKATRICE:
-        return True
     if monster[3].mname == 'mumak':
         return agent.blstats.hitpoints <= 60
     if is_dangerous_monster(monster):
@@ -45,8 +40,7 @@ def is_dangerous_monster(monster):
     # or 'mimic' in mon.mname
     # hypothesis: classifying high-damage mid-dungeon monsters as dangerous
     # makes low-HP combat kite or engrave instead of committing to melee.
-    return is_pet or is_mumak or mon.mname in INSECTS or mon.mname in HIGH_DAMAGE_MONSTERS \
-        or mon.mname in COCKATRICE
+    return is_pet or is_mumak or mon.mname in INSECTS or mon.mname in HIGH_DAMAGE_MONSTERS
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):
