@@ -47,11 +47,14 @@ class ItemPriority(ItemPriorityBase):
 
             how_many_already_total = ret_inv.get(item, 0) + ret_bag.get(item, 0)
             how_many_already = ret.get(item, 0)
-            max_to_add = int(remaining_weight // item.unit_weight(with_content=False))
+            unit_weight = item.unit_weight(with_content=False)
+            # hypothesis: treating genuinely weightless items as capacity-free
+            # prevents inventory planning from crashing on corpses such as wraiths.
+            max_to_add = item.count if unit_weight <= 0 else int(remaining_weight // unit_weight)
             if count is not None:
                 max_to_add = min(max_to_add, count)
             ret[item] = min(item.count, how_many_already_total + max_to_add) - (how_many_already_total - how_many_already)
-            remaining_weight -= item.unit_weight(with_content=False) * (ret[item] - how_many_already)
+            remaining_weight -= unit_weight * (ret[item] - how_many_already)
 
         for item in items:
             if item.is_container() and item.status in [Item.UNCURSED, Item.BLESSED] and item.objs[0].desc == 'bag':
@@ -515,10 +518,7 @@ class GlobalLogic:
         while 1:
             explore_stairs_condition = lambda: False
             if self.milestone == Milestone.BE_ON_FIRST_LEVEL:
-                # hypothesis: an XL7 opening still farming after 30k actions has crossed
-                # the point where direct descent beats further level-one action churn.
-                condition = lambda: self.agent.blstats.experience_level >= 8 or (
-                    self.agent.blstats.experience_level >= 7 and self.agent.step_count >= 30000)
+                condition = lambda: self.agent.blstats.experience_level >= 8
                 # explore_stairs_condition = lambda: self.agent.inventory.items.total_nutrition() == 0 and \
                 #                                    self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
@@ -560,9 +560,7 @@ class GlobalLogic:
                 level = (Level.DUNGEONS_OF_DOOM, 100)
 
             if condition():
-                # hypothesis: after the neutral Valkyrie safely reaches XL8, direct Doom descent yields depth and XP progression more reliably than the unfinished Mines/Sokoban detour.
-                self.milestone = Milestone.GO_DOWN if self.milestone == Milestone.BE_ON_FIRST_LEVEL else \
-                    Milestone(int(self.milestone) + 1)
+                self.milestone = Milestone(int(self.milestone) + 1)
                 continue
 
 
@@ -638,7 +636,11 @@ class GlobalLogic:
                 self.follow_guard(),
             ])
             .preempt(self.agent, [
+                self.agent.flee_low_hp(),
                 self.agent.fight2(),
+            ])
+            .preempt(self.agent, [
+                self.agent.recover_health(),
             ])
             .preempt(self.agent, [
                 self.agent.engulfed_fight(),

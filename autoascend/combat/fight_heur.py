@@ -4,10 +4,12 @@ from itertools import product
 import numpy as np
 from scipy import signal
 
-from ..glyph import G
+from ..glyph import G, Hunger
+from ..level import Level
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, PETRIFYING_MONSTERS, \
+    consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -17,10 +19,27 @@ def melee_monster_priority(agent, monsters, monster):
     ret = 1
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
+    # hypothesis: after descending, an early knight should stand and thin an
+    # adjacent giant-ant pair instead of futilely retreating into unknown terrain.
+    adjacent_giant_ants = sum(
+        other[3].mname == 'giant ant' and
+        adjacent((other[1], other[2]), (agent.blstats.y, agent.blstats.x))
+        for other in monsters
+    )
+    if mon.mname == 'giant ant' and \
+            agent.blstats.experience_level <= 8 and agent.blstats.depth > 1:
+        ret += 4 * max(0, adjacent_giant_ants - 1)
+    # hypothesis: below a mumak's typical attack-round damage, preferring retreat
+    # or missiles over another melee exchange prevents avoidable burst deaths.
+    if mon.mname == 'mumak' and agent.blstats.hitpoints <= 28:
+        ret -= 20
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
         ret -= 6
     if mon.mname in EXPLODING_MONSTERS:
         ret -= 17
+    if mon.mname == 'spotted jelly' and \
+            agent.blstats.hitpoints * 2 <= agent.blstats.max_hitpoints:
+        ret -= 100
     if 'were' in mon.mname:
         ret += 1
     # if not wielding_melee_weapon(agent):
@@ -141,6 +160,9 @@ def _simulate_wand_path(agent, wand, monsters, y, x, dy, dx, range_left, hit_tar
             monster = 'pet'
             # For each monster hit, range decreases by 2.
             range_left -= 2
+        elif inside(agent, y, x) and agent.monster_tracker.peaceful_monster_mask[y, x]:
+            monster = 'peaceful'
+            range_left -= 2
         elif agent.blstats.y == y and agent.blstats.x == x:
             monster = 'self'
             range_left -= 2
@@ -170,6 +192,7 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
     # TODO: also get items recursively from bags
     for item in agent.inventory.items:
         targeted_monsters = set()
+        hits_peaceful = False
         if not item.is_offensive_usable_wand():
             continue
         priority = 0
@@ -178,6 +201,8 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
             # print(y, x, monster, p)
             if monster == 'pet':
                 priority -= p * 20
+            elif monster == 'peaceful':
+                hits_peaceful = True
             elif monster == 'self':
                 priority -= p * 30
             elif monster is not None:
@@ -189,7 +214,9 @@ def get_potential_wand_usages(agent, monsters, dy, dx):
                 else:
                     priority += min(p, 1) * 10
                 targeted_monsters.add((y, x, monster))
-        if targeted_monsters:
+        # hypothesis: rejecting wand paths through peaceful creatures prevents one
+        # collateral hit from turning Minetown's watch into a lethal hostile mob.
+        if targeted_monsters and not hits_peaceful:
             # priority = priority * (1 - player_hp_ratio) - 10
             priority = priority - 15
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
@@ -204,12 +231,23 @@ def elbereth_action(agent, monsters):
     if not agent.can_engrave():
         return []
     adj_monsters_count = 0
+    adjacent_unicorn = False
+    adjacent_pack_hunter = False
+    adjacent_weak_monster = False
+    adjacent_water_moccasins = 0
     for monster in monsters:
         _, my, mx, mon, _ = monster
         if mon.mname in ONLY_RANGED_SLOW_MONSTERS:
             continue
         if not adjacent((my, mx), (agent.blstats.y, agent.blstats.x)):
             continue
+        adjacent_unicorn |= 'unicorn' in mon.mname
+        adjacent_pack_hunter |= mon.mname in (
+            'jackal', 'coyote', 'wolf', 'winter wolf cub', 'warg',
+            'winter wolf', 'hell hound pup', 'hell hound',
+        )
+        adjacent_weak_monster |= mon.mname in WEAK_MONSTERS
+        adjacent_water_moccasins += mon.mname == 'water moccasin'
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
@@ -221,17 +259,38 @@ def elbereth_action(agent, monsters):
             adj_monsters_count += 2 * multiplier
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
+    # hypothesis: engraving at low HP against an adjacent, twice-as-fast
+    # multiattack unicorn prevents a knowingly lethal extra melee exchange.
+    if agent.blstats.hitpoints <= 16 and adjacent_unicorn:
+        return [(25, ('elbereth',))]
+    # hypothesis: immediately engraving against an adjacent water-moccasin swarm
+    # prevents a fountain's surrounding snakes from taking several attack rounds
+    # before the ordinary low-HP defense activates.
+    if adjacent_water_moccasins >= 2:
+        return [(20, ('elbereth',))]
+    # hypothesis: urgently engraving against fast canine pack hunters at retreat
+    # HP prevents them from following and finishing otherwise viable knight runs.
+    if agent.blstats.hitpoints <= 12 and adjacent_pack_hunter:
+        return [(25, ('elbereth',))]
+    # hypothesis: after the fragile opening, a knight newly reaching the retreat
+    # boundary can use an adjacent weak monster as an Elbereth shelter to recover.
+    if agent.blstats.time >= 500 and agent.blstats.hitpoints == 12 and adjacent_weak_monster:
+        return [(25, ('elbereth',))]
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
         return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []
 
 
 def wait_action(agent, monsters):
-    if agent.inventory.engraving_below_me.lower() == 'elbereth':
-        player_hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
-        priority = 30 - player_hp_ratio * 40
-        return [(priority, ('wait',))]
-    return []
+    if agent.inventory.engraving_below_me.lower() != 'elbereth':
+        return []
+    # hypothesis: once hunger starts, leaving an Elbereth shelter to resolve the
+    # fight preserves the turns needed to find food instead of waiting to faint.
+    if agent.blstats.hunger_state >= Hunger.HUNGRY:
+        return []
+    player_hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
+    priority = 30 - player_hp_ratio * 40
+    return [(priority, ('wait',))]
 
 
 def get_available_actions(agent, monsters):
@@ -240,6 +299,8 @@ def get_available_actions(agent, monsters):
     # melee attack actions
     for monster in monsters:
         _, y, x, mon, _ = monster
+        if agent.character.prop.polymorph and mon.mname in PETRIFYING_MONSTERS:
+            continue
         if adjacent((y, x), (agent.blstats.y, agent.blstats.x)):
             priority = melee_monster_priority(agent, monsters, monster)
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
@@ -354,3 +415,35 @@ def get_move_actions(agent, dis, move_priority_heatmap):
         if not np.isnan(move_priority_heatmap[y, x]):
             ret.append((move_priority_heatmap[y, x], ('move', dy, dx)))
     return ret
+
+
+def choose_action(agent, monsters, actions):
+    priority, best_action = max(actions, key=lambda action: action[0])
+
+    def ray_aligned(y1, x1, y2, x2):
+        return y1 == y2 or x1 == x2 or abs(y1 - y2) == abs(x1 - x2)
+
+    # hypothesis: in the open Mines, approaching a lone item-carrying ogre along
+    # a nearly tied nonaligned route avoids giving its attack wand a free ray shot.
+    if agent.blstats.dungeon_number == Level.GNOMISH_MINES and \
+            agent.blstats.hitpoints == agent.blstats.max_hitpoints and len(monsters) == 1 and \
+            monsters[0][0] > 3 and monsters[0][3].mname in ('ogre', 'ogre lord') and \
+            best_action[0] == 'move':
+        _, my, mx, _, _ = monsters[0]
+        py, px = agent.blstats.y, agent.blstats.x
+        _, dy, dx = best_action
+        if not ray_aligned(py, px, my, mx) and ray_aligned(py + dy, px + dx, my, mx):
+            alternatives = [
+                action for action in actions
+                if action[1][0] == 'move' and action[0] >= priority - 1 and
+                not ray_aligned(py + action[1][1], px + action[1][2], my, mx)
+            ]
+            if alternatives:
+                priority, best_action = max(
+                    alternatives,
+                    key=lambda action: (
+                        action[0],
+                        -max(abs(py + action[1][1] - my), abs(px + action[1][2] - mx)),
+                    ),
+                )
+    return priority, best_action

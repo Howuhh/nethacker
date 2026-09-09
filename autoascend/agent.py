@@ -58,6 +58,9 @@ class Agent:
         self.last_bfs_dis = None
         self.last_bfs_step = None
         self.last_prayer_turn = None
+        self.shallow_starvation_prayer = False
+        self.handled_minetown_hallu = False
+        self._recent_poison_resistance_fungus_kills = {}
         self._previous_glyphs = None
         self._last_turn = -1
         self._inactivity_counter = 0
@@ -568,12 +571,34 @@ class Agent:
             assert mons.any()
 
             for mname in mnames:
-                glyph = MON.from_name(mname)
+                try:
+                    glyph = MON.from_name(mname)
+                except AssertionError:
+                    # hypothesis: ignoring shapechanger role titles that are not
+                    # real monster species keeps corpse tracking from killing the strategy thread.
+                    continue
                 monster_id = glyph - nh.GLYPH_MON_OFF
+                permonst = MON.permonst(glyph)
+                if self.blstats.depth == 1 and self.blstats.experience_level >= 7 and \
+                        ord(permonst.mlet) == MON.S_FUNGUS and \
+                        permonst.mconveys & MON.MR_POISON and \
+                        self._is_corpse_editable(monster_id, self.blstats.time):
+                    self._recent_poison_resistance_fungus_kills[monster_id] = self.blstats.time
                 corpse_glyph = MON.body_from_name(mname)
                 for y, x in zip(*utils.isin(mons, [glyph]).nonzero()):
                     # TODO: it works because level.items is updated in `inventory.check_items`
-                    if all(map(lambda item: item.is_corpse() and item.monster_id != monster_id, level.items[y, x])):
+                    old_square_allows_corpse = all(
+                        item.is_corpse() and item.monster_id != monster_id
+                        for item in level.items[y, x]
+                    )
+                    # hypothesis: when weak, recognizing a lightweight fresh corpse
+                    # beneath ordinary loot provides emergency food without a long meal delay.
+                    hungry_square_allows_corpse = self.blstats.hunger_state >= Hunger.WEAK and \
+                        MON.permonst(glyph).cwt <= 100 and all(
+                        not item.is_corpse() or item.monster_id != monster_id
+                        for item in level.items[y, x]
+                    )
+                    if old_square_allows_corpse or hungry_square_allows_corpse:
                         level.corpses_to_eat[y, x][monster_id] = self.blstats.time
 
         old_possible_corpses = level.corpses_to_eat[self.blstats.y, self.blstats.x].copy()
@@ -584,8 +609,17 @@ class Agent:
             if count != 1:
                 continue
 
-            level.corpses_to_eat[self.blstats.y, self.blstats.x][item.monster_id] = \
-                old_possible_corpses[item.monster_id]
+            corpse_age = old_possible_corpses[item.monster_id]
+            permonst = MON.permonst(item.monster_id)
+            recent_kill_turn = self._recent_poison_resistance_fungus_kills.get(item.monster_id, -10000)
+            # hypothesis: during the late first-floor farm, an experienced hero
+            # can safely recover a just-obscured fungus corpse for food and poison resistance.
+            if corpse_age == -10000 and self.blstats.depth == 1 and \
+                    self.blstats.experience_level >= 7 and ord(permonst.mlet) == MON.S_FUNGUS and \
+                    permonst.mconveys & MON.MR_POISON and \
+                    0 <= self.blstats.time - recent_kill_turn <= 1:
+                corpse_age = recent_kill_turn
+            level.corpses_to_eat[self.blstats.y, self.blstats.x][item.monster_id] = corpse_age
 
     def update_level(self):
         if utils.isin(self.glyphs, G.SWALLOW).any():
@@ -606,7 +640,9 @@ class Agent:
         level.seen[mask] = True
         level.walkable[mask & (level.objects == -1)] = True
 
-        mask = utils.isin(self.glyphs, G.WALL, G.DOOR_CLOSED, G.BARS)
+        # hypothesis: recording visible liquid hazards as non-walkable prevents a
+        # previously obscuring monster or item from leaving lava in the path map.
+        mask = utils.isin(self.glyphs, G.WALL, G.DOOR_CLOSED, G.BARS, G.HAZARDS)
         level.seen[mask] = True
         level.objects[mask] = self.glyphs[mask]
         level.walkable[mask] = False
@@ -760,6 +796,14 @@ class Agent:
         with self.atom_operation():
             self.step(A.Command.ZAP)
             self.type_text(self.inventory.items.get_letter(item))
+            # hypothesis: retiring a drained wand when NetHack declines to ask for
+            # a direction prevents repeated pseudo-zaps from becoming accidental
+            # wall bumps or melee attacks during dangerous fights.
+            if 'In what direction?' not in self.single_message:
+                if 'Nothing happens.' in self.message or \
+                        'absence of magical power' in self.message:
+                    item.uses = 'no charges'
+                return False
             self.direction(direction)
         return True
 
@@ -860,7 +904,15 @@ class Agent:
             level = self.current_level()
             with self.atom_operation():
                 self.direction(dir)
-                assert self.current_level().key() != level.key(), self.message
+                # hypothesis: treating a failed traversal of a mimic-disguised
+                # staircase as recoverable lets terrain refresh discard the
+                # counterfeit stair instead of permanently killing the policy.
+                if self.current_level().key() == level.key():
+                    if "You can't go up here." in self.message or \
+                            "You can't go down here." in self.message:
+                        level.objects[expected_y, expected_x] = -1
+                        level.stair_destination.pop((expected_y, expected_x), None)
+                    raise AgentPanic(f'failed stair traversal: {self.message}')
                 level.stair_destination[expected_y, expected_x] = \
                     (self.current_level().key(), (self.blstats.y, self.blstats.x))
                 # TODO: one way portals (elemental and astral planes)
@@ -1143,7 +1195,7 @@ class Agent:
             if not actions:
                 assert 0, 'No possible action available during fight2'
 
-            priority, best_action = max(actions, key=lambda x: x[0]) if actions else None
+            priority, best_action = combat.fight_heur.choose_action(self, monsters, actions)
 
             with self.env.debug_tiles(move_priority_heatmap, color='turbo', is_heatmap=True):
                 actions_str = '|'.join([combat.utils.action_str(self, a) for a in sorted(actions, key=lambda x: x[0])])
@@ -1400,9 +1452,92 @@ class Agent:
         low_hp = hp_ratio < 0.5 and (self.blstats.max_hitpoints - self.blstats.hitpoints > 25)
         return self.blstats.energy >= 15 and low_hp
 
+    @utils.debug_log('recover_health')
+    @Strategy.wrap
+    def recover_health(self):
+        # hypothesis: resting after severe fights on deeper levels, while fed and
+        # unthreatened, prevents accumulated damage from making the next encounter lethal.
+        # hypothesis: allow resting to recover health on any depth when low HP and safe
+        if self.blstats.hitpoints * 2 >= self.blstats.max_hitpoints or \
+                self.blstats.hunger_state >= Hunger.HUNGRY or self.get_visible_monsters():
+            yield False
+
+        yield True
+        while self.blstats.hitpoints < 0.8 * self.blstats.max_hitpoints and \
+                self.blstats.hunger_state < Hunger.HUNGRY and not self.get_visible_monsters():
+            self.direction('.')
+
+    # hypothesis: fleeing when low HP and monsters nearby improves survivability
+    @utils.debug_log('flee_low_hp')
+    @Strategy.wrap
+    def flee_low_hp(self):
+        # Return True if a flee action was performed, otherwise False to skip.
+        low_hp = self.blstats.hitpoints < 0.5 * self.blstats.max_hitpoints
+        if not low_hp:
+            yield False
+        monsters = self.get_visible_monsters()
+        if not monsters:
+            yield False
+        # Find a neighboring walkable tile that maximizes distance from the closest monster.
+        best_tile = None
+        best_dist = -1
+        for ny, nx in self.neighbors(self.blstats.y, self.blstats.x):
+            if self.current_level().walkable[ny, nx] and not self.monster_tracker.monster_mask[ny, nx]:
+                min_dist = min(abs(ny - m[1]) + abs(nx - m[2]) for m in monsters)
+                if min_dist > best_dist:
+                    best_dist = min_dist
+                    best_tile = (ny, nx)
+        if best_tile is None:
+            yield False
+        # Perform move to chosen safe tile.
+        self.move(*best_tile)
+        # Strategy succeeded.
+        return True
+
     @utils.debug_log('emergency_strategy')
     @Strategy.wrap
     def emergency_strategy(self):
+
+        if self.blstats.prop_mask & nh.BL_MASK_STONE:
+            yield True
+            self.pray()
+            return
+        # hypothesis: pray when low HP and safe to gain protection before combat
+        if self.blstats.hitpoints < 0.3 * self.blstats.max_hitpoints and self.is_safe_to_pray(200):
+            yield True
+            self.pray()
+            return
+
+        # hypothesis: a run that leaves the opening farm foodless should use safe
+        # Weak-state prayers before its recurring starvation becomes fatal.
+        shallow_doom = self.blstats.dungeon_number == Level.DUNGEONS_OF_DOOM and \
+            self.blstats.level_number == 2 and self.blstats.experience_level == 8
+        if (shallow_doom or self.shallow_starvation_prayer) and \
+                self.blstats.hunger_state >= Hunger.WEAK and \
+                self.inventory.items.total_nutrition() == 0 and \
+                not self.get_visible_monsters() and self.is_safe_to_pray(400):
+            yield True
+            self.shallow_starvation_prayer = True
+            self.pray()
+            return
+
+        in_minetown = self.global_logic.minetown_level is not None and \
+            self.current_level().key() == self.global_logic.minetown_level
+        # hypothesis: resolving the first late Minetown hallucination with one safe,
+        # out-of-combat prayer preserves recognition of the peaceful watch without
+        # repeatedly spending prayers or losing a combat turn.
+        if self.character.prop.hallu and self.blstats.experience_level >= 11 and in_minetown and \
+                not self.handled_minetown_hallu:
+            self.handled_minetown_hallu = True
+            visible_monsters = self.get_visible_monsters()
+            # hypothesis: hallucination makes peaceful Minetown residents appear
+            # hostile, so allow the one-shot cure when every reported threat is
+            # more than three steps away while retaining the close-danger guard.
+            if all(monster[0] > 3 for monster in visible_monsters) and \
+                    self.is_safe_to_pray(400):
+                yield True
+                self.pray()
+                return
 
         # if self.should_cast_extra_heal():
         #     yield True
@@ -1416,12 +1551,18 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
-        if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
-        ):
+        # hypothesis: heal earlier at 50% health improves survivability
+        urgent_healing = self.blstats.hitpoints < 0.5 * self.blstats.max_hitpoints or \
+            self.blstats.hitpoints < 8
+        full_healing_items = [item for item in items if item.object.name == 'full healing']
+        # hypothesis: spending full healing below two-fifths health prevents a
+        # multiattack from crossing the old one-third trigger and killing the hero
+        # before another action, while weaker healing keeps its conservative timing.
+        early_full_healing = not urgent_healing and \
+            self.blstats.hitpoints < 2 / 5 * self.blstats.max_hitpoints and full_healing_items
+        if (urgent_healing and items) or early_full_healing:
             yield True
-            self.inventory.quaff(items[0])
+            self.inventory.quaff(full_healing_items[0] if early_full_healing else items[0])
             return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
