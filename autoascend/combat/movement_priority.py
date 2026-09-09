@@ -1,7 +1,16 @@
 from ..utils import adjacent
+from ..glyph import MON
 from . import utils
 from .monster_utils import WEAK_MONSTERS, ONLY_RANGED_SLOW_MONSTERS, consider_melee_only_ranged_if_hp_full, \
     imminent_death_on_melee, EXPLODING_MONSTERS, WEIRD_MONSTERS
+
+
+def is_ranged_threat(monster):
+    _, _, _, mon, _ = monster
+    # hypothesis: special attacks from these classes need line-of-fire avoidance
+    # because they do not create the adjacent-melee warning used by the normal heuristic.
+    return ord(mon.mlet) == MON.S_LICH or \
+        mon.mname in ('wizard', 'kobold shaman')
 
 
 def _draw_around(priority, y, x, value, radius=1, operation='add'):
@@ -135,3 +144,6 @@ def draw_monster_priority_negative(agent, monster, priority, walkable):
 
     if mon.mname == 'purple worm' and len(agent.inventory.get_ranged_combinations()):
         _draw_around(priority, y, x, -10, radius=1)
+
+    if is_ranged_threat(monster):
+        _draw_ranged(priority, y, x, -8, walkable, radius=7)

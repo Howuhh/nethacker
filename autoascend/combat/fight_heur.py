@@ -204,7 +204,6 @@ def elbereth_action(agent, monsters):
     if not agent.can_engrave():
         return []
     adj_monsters_count = 0
-    dangerous_adjacent = False
     for monster in monsters:
         _, my, mx, mon, _ = monster
         if mon.mname in ONLY_RANGED_SLOW_MONSTERS:
@@ -220,15 +219,10 @@ def elbereth_action(agent, monsters):
         adj_monsters_count += 1 * multiplier
         if is_dangerous_monster(monster):
             adj_monsters_count += 2 * multiplier
-            dangerous_adjacent = True
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        # hypothesis: making emergency Elbereth decisive against dangerous
-        # adjacent monsters prevents a low-HP monk from attacking into death.
-        priority = (20 if dangerous_adjacent else -15) + \
-                   20 * adj_monsters_count * (1 - player_hp_ratio)
-        return [(priority, ('elbereth',))]
+        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
     return []
 
 
