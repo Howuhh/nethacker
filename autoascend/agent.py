@@ -420,6 +420,13 @@ class Agent:
             return
 
         if b'[yn]' in bytes(observation['tty_chars'].reshape(-1)):
+            # hypothesis: exploration sometimes steps into a peaceful creature.
+            # NetHack asks before making it hostile; answering yes turned the
+            # seed-1 monk into a shopkeeper fight it cannot win.  This is not a
+            # normal command confirmation, so reject only this explicit prompt.
+            if 'really attack' in self.message.lower():
+                self.type_text('n')
+                return
             self.type_text('y')
             return
 
