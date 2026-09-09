@@ -8,6 +8,7 @@ from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
+from .monster_utils import unsafe_footrice_contact
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -241,12 +242,13 @@ def get_available_actions(agent, monsters):
     for monster in monsters:
         _, y, x, mon, _ = monster
         if adjacent((y, x), (agent.blstats.y, agent.blstats.x)):
-            # hypothesis: generic combat offered an ordinary melee attack
-            # against cockatrices.  A monk commonly has no weapon or gloves,
-            # so that decision causes immediate petrification.  Require a
-            # ranged or escape action until a dedicated safe-contact check is
-            # available.
-            if mon.mname in ('cockatrice', 'Medusa'):
+            # hypothesis: monks permanently fight unarmed, so the old generic
+            # melee action touched cockatrices and caused instant petrification.
+            # Do not expose that action until the executor has equipped a safe
+            # weapon; movement, engraving, wands, and ranged attacks remain.
+            if unsafe_footrice_contact(agent, monster) and not any(
+                    item.is_weapon() and item.status in [item.UNCURSED, item.BLESSED]
+                    for item in agent.inventory.items):
                 continue
             priority = melee_monster_priority(agent, monsters, monster)
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
@@ -308,9 +310,7 @@ def goto_action(agent, priority, monsters):
         if not adjacent((agent.blstats.y, agent.blstats.x), (my, mx)):
             # and not mon.mname in ONLY_RANGED_SLOW_MONSTERS:
             return [(1, ('go_to', my, mx))]
-    # All visible monsters are adjacent.  This is normal for a contact-lethal
-    # monster: fight2 will append legal movement actions after this helper.
-    return []
+    assert 0, monsters
 
 
 def get_corridors_priority_map(walkable):

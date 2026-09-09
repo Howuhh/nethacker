@@ -7,7 +7,22 @@ INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle',
 HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
                         'tiger', 'winter wolf']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
-WEIRD_MONSTERS = ['leprechaun', 'nymph', 'cockatrice', 'Medusa']
+WEIRD_MONSTERS = ['leprechaun', 'nymph']
+FOOTRICES = ['cockatrice', 'chickatrice']
+
+
+def is_footrice(monster):
+    """Whether touching this monster can stone an unprotected hero."""
+    return monster[3].mname in FOOTRICES
+
+
+def unsafe_footrice_contact(agent, monster):
+    """A monk's normal unarmed attack is bare-skin contact.
+
+    We deliberately require a wielded implement rather than trying to infer all
+    of NetHack's attack forms (gloves do not make an unarmed monk's kick safe).
+    """
+    return is_footrice(monster) and agent.inventory.items.main_hand is None
 
 
 def is_monster_faster(agent, monster):
@@ -18,6 +33,8 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
+    if unsafe_footrice_contact(agent, monster):
+        return True
     if monster[3].mname == 'mumak':
         return agent.blstats.hitpoints <= 60
     if is_dangerous_monster(monster):

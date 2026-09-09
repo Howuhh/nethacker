@@ -1,5 +1,4 @@
 import contextlib
-import os
 import re
 from collections import namedtuple, Counter, defaultdict
 from functools import partial
@@ -369,17 +368,6 @@ class Agent:
         self.step_count += 1
         self.score += reward
 
-        # Optional deterministic replay aid; disabled in normal arena runs.
-        # Record the decision context immediately before parsing the next frame.
-        trace_path = os.environ.get('AUTOASCEND_TRACE')
-        if trace_path and self.step_count <= int(os.environ.get('AUTOASCEND_TRACE_LIMIT', '50000')):
-            with open(trace_path, 'a', encoding='utf-8') as trace:
-                old = getattr(self, 'blstats', None)
-                trace.write(f"{self.step_count}\t{int(action)}\t"
-                            f"t={getattr(old, 'time', '?')} d={getattr(old, 'depth', '?')} "
-                            f"hp={getattr(old, 'hitpoints', '?')}/{getattr(old, 'max_hitpoints', '?')} "
-                            f"{getattr(self, 'message', '')[-160:]!r}\n")
-
         self.cursor_pos = (observation['tty_cursor'][0] - 1, observation['tty_cursor'][1])
 
         if hasattr(self, 'blstats'):
@@ -692,6 +680,27 @@ class Agent:
         item = self.inventory.get_best_melee_weapon()
         if item != self.inventory.items.main_hand:
             return self.inventory.wield(item)
+        return False
+
+    def wield_footrice_safe_weapon(self):
+        """Temporarily arm a monk before striking a cockatrice/chickatrice.
+
+        Monks normally prefer fists, which is correct except against a
+        footrice: its passive stoning attack kills on bare-hand contact.  Only
+        use identified non-cursed weapons, so this emergency switch cannot
+        weld a bad weapon to the hero.
+        """
+        candidates = [item for item in flatten_items(self.inventory.items)
+                      if item.is_weapon() and item.status in [Item.UNCURSED, Item.BLESSED]]
+        if not candidates:
+            return False
+        item = max(candidates, key=lambda i: utils.calc_dps(
+            *self.character.get_melee_bonus(i, large_monster=False)))
+        if item != self.inventory.items.main_hand:
+            equipped = self.inventory.wield(item)
+            if equipped:
+                self.stats_logger.log_event('footrice_safe_weapon')
+            return equipped
         return False
 
     def type_text(self, text):
@@ -1180,6 +1189,15 @@ class Agent:
             _, dy, dx = best_action
             target_y = self.blstats.y + dy
             target_x = self.blstats.x + dx
+            # See fight_heur's gate.  This is kept here as a last line of
+            # defense because an adjacent monster can change between planning
+            # and execution.
+            if self.glyphs[target_y, target_x] in G.MONS:
+                mon = MON.permonst(self.glyphs[target_y, target_x])
+                if mon.mname in combat.monster_utils.FOOTRICES and self.inventory.items.main_hand is None:
+                    if self.wield_footrice_safe_weapon():
+                        return wait_counter
+                    return wait_counter
             if self.wield_best_melee_weapon():
                 return wait_counter
             with self.env.debug_tiles([[self.blstats.y, self.blstats.x],
