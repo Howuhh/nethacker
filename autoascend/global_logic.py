@@ -519,8 +519,8 @@ class GlobalLogic:
                 # hypothesis: when level-1 farming runs out of carried food, descending to seek
                 # nutrition is safer and advances farther than waiting for late dangerous spawns.
                 # hypothesis: descend earlier when low nutrition and sufficient time has passed
-                explore_stairs_condition = lambda: self.agent.blstats.time > 100 and self.agent.inventory.items.total_nutrition() < 5000 and \
-                                                   self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY
+                explore_stairs_condition = lambda: self.agent.blstats.time > 80 and self.agent.inventory.items.total_nutrition() < 2000 and \
+                                                   self.agent.blstats.hunger_state >= Hunger.HUNGRY
                 level = (Level.DUNGEONS_OF_DOOM, 1)
 
             elif self.milestone == Milestone.FIND_SOKOBAN:
@@ -624,7 +624,7 @@ class GlobalLogic:
             ])
             .preempt(self.agent, [
                 self.offer_corpses().preempt(self.agent, [
-                    self.agent.eat_corpses_from_ground().condition(lambda: self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY),
+                    self.agent.eat_corpses_from_ground().condition(lambda: self.agent.blstats.hunger_state >= Hunger.HUNGRY),
                 ]),
             ])
             .preempt(self.agent, [
@@ -634,9 +634,9 @@ class GlobalLogic:
                 self.agent.cure_disease().every(5),
             ])
             .preempt(self.agent, [
-                self.agent.eat_corpses_from_ground(only_below_me=True).condition(lambda: self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY),
-                self.agent.eat_corpses_from_ground().every(5).condition(lambda: self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY),
-                self.agent.eat_from_inventory().every(5),
+                self.agent.eat_corpses_from_ground(only_below_me=True).condition(lambda: self.agent.blstats.hunger_state >= Hunger.HUNGRY),
+                self.agent.eat_corpses_from_ground().every(5).condition(lambda: self.agent.blstats.hunger_state >= Hunger.HUNGRY),
+                self.agent.eat_from_inventory().every(5)
             ])
             .preempt(self.agent, [
                 self.follow_guard(),
