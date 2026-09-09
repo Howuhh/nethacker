@@ -622,6 +622,9 @@ class GlobalLogic:
                                    self.agent.current_level().dungeon_number == Level.SOKOBAN)
             ])
             .preempt(self.agent, [
+                self.agent.learn_monk_starting_spell(),
+            ])
+            .preempt(self.agent, [
                 self.offer_corpses().preempt(self.agent, [
                     self.agent.eat_corpses_from_ground().condition(lambda: self.agent.blstats.hunger_state >= Hunger.NOT_HUNGRY),
                 ]),

@@ -77,6 +77,7 @@ class Agent:
         self._allow_attack_all_turn = -float('inf')
 
         self.last_cast_fail_turn = defaultdict(lambda: -float('inf'))
+        self._monk_starting_spell_studied = False
 
         self.stats_logger = StatsLogger()
 
@@ -682,27 +683,6 @@ class Agent:
             return self.inventory.wield(item)
         return False
 
-    def wield_footrice_safe_weapon(self):
-        """Temporarily arm a monk before striking a cockatrice/chickatrice.
-
-        Monks normally prefer fists, which is correct except against a
-        footrice: its passive stoning attack kills on bare-hand contact.  Only
-        use identified non-cursed weapons, so this emergency switch cannot
-        weld a bad weapon to the hero.
-        """
-        candidates = [item for item in flatten_items(self.inventory.items)
-                      if item.is_weapon() and item.status in [Item.UNCURSED, Item.BLESSED]]
-        if not candidates:
-            return False
-        item = max(candidates, key=lambda i: utils.calc_dps(
-            *self.character.get_melee_bonus(i, large_monster=False)))
-        if item != self.inventory.items.main_hand:
-            equipped = self.inventory.wield(item)
-            if equipped:
-                self.stats_logger.log_event('footrice_safe_weapon')
-            return equipped
-        return False
-
     def type_text(self, text):
         with self.atom_operation():
             for char in text:
@@ -824,6 +804,16 @@ class Agent:
             else:
                 self.last_cast_fail_turn[spell_name] = self._last_turn
                 self.stats_logger.log_event(f'cast_fail_{spell_name}')
+
+    def study_spellbook(self, item):
+        """Study one known, non-cursed spellbook and refresh the spell menu."""
+        assert item.is_unambiguous() and item.category == nh.SPBOOK_CLASS
+        item = self.inventory.move_to_inventory(item)
+        with self.atom_operation():
+            self.step(A.Command.READ)
+            assert 'What do you want to read?' in self.message, self.message
+            self.type_text(self.inventory.items.get_letter(item))
+        self.character.parse_spellcast_view()
 
     def kick(self, y, x=None):
         with self.panic_if_position_changes():
@@ -1189,15 +1179,6 @@ class Agent:
             _, dy, dx = best_action
             target_y = self.blstats.y + dy
             target_x = self.blstats.x + dx
-            # See fight_heur's gate.  This is kept here as a last line of
-            # defense because an adjacent monster can change between planning
-            # and execution.
-            if self.glyphs[target_y, target_x] in G.MONS:
-                mon = MON.permonst(self.glyphs[target_y, target_x])
-                if mon.mname in combat.monster_utils.FOOTRICES and self.inventory.items.main_hand is None:
-                    if self.wield_footrice_safe_weapon():
-                        return wait_counter
-                    return wait_counter
             if self.wield_best_melee_weapon():
                 return wait_counter
             with self.env.debug_tiles([[self.blstats.y, self.blstats.x],
@@ -1408,20 +1389,50 @@ class Agent:
             yield False
 
     def should_cast_heal(self):
-        # TODO: consider casting for other classes
-        if self.character.role != self.character.HEALER:
-            return False
         if 'healing' not in self.character.known_spells:
             return False
         if self.blstats.hunger_state >= Hunger.FAINTING:
             return False
         if self._last_turn - self.last_cast_fail_turn['healing'] < 2:
             return False
-        if self.character.spell_fail_chance['healing'] > 0.2:
+        if self.character.spell_fail_chance.get('healing', 1) > 0.2:
             return False
         hp_ratio = self.blstats.hitpoints / self.blstats.max_hitpoints
         low_hp = hp_ratio < 0.5 or (self.blstats.hitpoints < 10 and self.blstats.max_hitpoints > 10)
         return self.blstats.energy >= 5 and low_hp
+
+    @utils.debug_log('learn_monk_starting_spell')
+    @Strategy.wrap
+    def learn_monk_starting_spell(self):
+        # hypothesis: monks whose guaranteed blessed starting book is healing
+        # were entering the midgame with it unused because spell parsing was
+        # limited to Healers. Learning it provides a renewable heal before
+        # lethal melee instead of consuming finite starting potions.
+        if self.character.role != Character.MONK:
+            yield False
+            return
+
+        # Do not spend a turn learning protection/sleep until there is a
+        # tactical casting policy for them. Healing has one below.
+        useful = {'healing'}
+        candidates = [item for item in flatten_items(self.inventory.items)
+                      if item.category == nh.SPBOOK_CLASS and item.is_unambiguous()
+                      and item.status in (Item.BLESSED, Item.UNCURSED)
+                      and item.object.name in useful
+                      and item.object.name not in self.character.known_spells]
+        healing_potions_left = any(
+            item.is_unambiguous() and item.category == nh.POTION_CLASS and
+            item.object.name in ('healing', 'extra healing', 'full healing')
+            for item in flatten_items(self.inventory.items))
+        # Strategy preconditions run under disallow_step_calling.  In
+        # particular, do not open the spell menu here; the boolean also keeps
+        # a failed/forgotten study from repeatedly consuming turns.
+        if self._monk_starting_spell_studied or not candidates or healing_potions_left:
+            yield False
+            return
+        yield True
+        self.study_spellbook(candidates[0])
+        self._monk_starting_spell_studied = True
 
     def should_cast_extra_heal(self):
         if 'extra healing' not in self.character.known_spells:
@@ -1445,10 +1456,10 @@ class Agent:
         #     self.cast('extra healing', direction=(0, 0))
         #     return
 
-        # if self.should_cast_heal():
-        #     yield True
-        #     self.cast('healing', direction=(0, 0))
-        #     return
+        if self.should_cast_heal():
+            yield True
+            self.cast('healing', direction=(0, 0))
+            return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
@@ -1555,7 +1566,6 @@ class Agent:
                         ((Level.PLANE, 1), (None, None))  # TODO: check level num
                     self.character.parse()
                     self.character.parse_enhance_view()
-                    # self.character.parse_spellcast_view()
                     self.step(A.Command.AUTOPICKUP)
                     if 'Autopickup: ON' in self.message:
                         self.step(A.Command.AUTOPICKUP)

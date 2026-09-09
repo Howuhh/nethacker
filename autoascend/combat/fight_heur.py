@@ -8,7 +8,6 @@ from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
-from .monster_utils import unsafe_footrice_contact
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -242,14 +241,6 @@ def get_available_actions(agent, monsters):
     for monster in monsters:
         _, y, x, mon, _ = monster
         if adjacent((y, x), (agent.blstats.y, agent.blstats.x)):
-            # hypothesis: monks permanently fight unarmed, so the old generic
-            # melee action touched cockatrices and caused instant petrification.
-            # Do not expose that action until the executor has equipped a safe
-            # weapon; movement, engraving, wands, and ranged attacks remain.
-            if unsafe_footrice_contact(agent, monster) and not any(
-                    item.is_weapon() and item.status in [item.UNCURSED, item.BLESSED]
-                    for item in agent.inventory.items):
-                continue
             priority = melee_monster_priority(agent, monsters, monster)
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100

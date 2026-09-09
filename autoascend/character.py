@@ -272,6 +272,10 @@ class Character:
         self.self_glyph = None
         self.skill_levels = np.zeros(max(self.name_to_skill_type.values()) + 1, dtype=int)
         self.upgradable_skills = dict()
+        # This is deliberately populated by the casting menu, rather than by
+        # inventory appearances: a spell is usable only after it was learned.
+        self.known_spells = dict()
+        self.spell_fail_chance = dict()
 
         self.is_lycanthrope = False
 
@@ -327,14 +331,11 @@ class Character:
         self.known_spells = dict()
         self.spell_fail_chance = dict()
 
-        # TODO: parse for other spellcaster classes
-        if self.role not in (self.HEALER,):
-            return
-
         with self.agent.atom_operation():
             self.agent.step(A.Command.CAST)
             if not self.agent.popup:
-                self.known_spells[self.agent.message] = None
+                # "You don't know any spells" is a normal state before the
+                # starting book has been studied, not a spell name.
                 return
             if self.agent.popup[0] not in ('Choose which spell to cast') or \
                     not self.agent.popup[1].startswith('Name'):
