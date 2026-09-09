@@ -8,6 +8,7 @@ from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
+from .monster_utils import is_petrifying_monster
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -241,6 +242,13 @@ def get_available_actions(agent, monsters):
     for monster in monsters:
         _, y, x, mon, _ = monster
         if adjacent((y, x), (agent.blstats.y, agent.blstats.x)):
+            # hypothesis: this Monk normally fights unarmed.  A cockatrice or
+            # chickatrice turns that generic action into an instant/deferred
+            # petrification risk, which caused two training trajectories to
+            # end.  Do not offer contact combat; movement, projectiles, wands,
+            # and Elbereth remain available as recovery actions.
+            if is_petrifying_monster(monster):
+                continue
             priority = melee_monster_priority(agent, monsters, monster)
             if agent.inventory.engraving_below_me.lower() == 'elbereth':
                 priority -= 100
