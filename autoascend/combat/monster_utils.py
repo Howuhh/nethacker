@@ -5,7 +5,8 @@ INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle',
 # Threats whose melee damage can kill a weakened early-game character in one
 # exchange, even though they are not fast or insects.
 HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
-                        'tiger', 'winter wolf']
+                        'tiger', 'winter wolf', 'black naga', 'master lich',
+                        'couatl']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
 
@@ -29,8 +30,8 @@ def is_dangerous_monster(monster):
     _, y, x, mon, _ = monster
     is_pet = 'dog' in mon.mname or 'cat' in mon.mname or 'kitten' in mon.mname or 'pony' in mon.mname \
              or 'horse' in mon.mname
-    # hypothesis: treating a mumak's full 60-damage attack round as imminently
-    # lethal makes monks kite this slow monster instead of entering fatal melee.
+    # hypothesis: classifying recurring mid-dungeon killers as dangerous makes
+    # monks kite or engrave instead of committing to fatal melee.
     is_mumak = mon.mname == 'mumak'
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
