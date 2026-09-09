@@ -270,20 +270,6 @@ class ExplorationLogic:
             for py, px in self.agent.neighbors(self.agent.blstats.y, self.agent.blstats.x, diagonal=False):
                 if (self.agent.current_level().door_open_count[py, px] < door_open_count or kick_doors) and \
                         self.agent.glyphs[py, px] in G.DOOR_CLOSED:
-                    level = self.agent.current_level()
-                    # hypothesis: generic exploration was kicking locked, closed-shop
-                    # doors.  In NetHack this angers the owner (the seed-1 replay
-                    # then fought a wand-wielding shopkeeper).  A known shop door
-                    # is not an exploration prerequisite: leave it closed unless
-                    # a future shopping/unlocking plan deliberately handles it.
-                    y0, y1 = max(0, py - 1), min(level.shop.shape[0], py + 2)
-                    x0, x1 = max(0, px - 1), min(level.shop.shape[1], px + 2)
-                    if level.shop[y0:y1, x0:x1].any() or level.shop_interior[y0:y1, x0:x1].any():
-                        # Also retire it from the generic frontier.  Otherwise
-                        # exploration repeatedly selects this deliberately
-                        # unavailable doorway and spends the episode searching.
-                        level.door_open_count[py, px] = door_open_count
-                        continue
                     if not yielded:
                         yielded = True
                         yield True

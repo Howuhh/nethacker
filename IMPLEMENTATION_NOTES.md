@@ -1,16 +1,16 @@
-# Shop-door safety
+# Petrification-safe combat
 
-Consulted: [NetHack Wiki: Shop](https://nethackwiki.com/wiki/Shop), especially
-"Closed shops" (retrieved 2026-09-09).
+Consulted: [NetHack Wiki: Cockatrice](https://nethackwiki.com/wiki/Cockatrice)
+(retrieved 2026-09-09).
 
-Rule implemented: a closed shop has a locked door and the "Closed for
-inventory" engraving; breaking that door angers its owner unless the player
-immediately pays 400 zorkmids.  Generic exploration therefore treats a known
-shop-adjacent closed door as unavailable, marks it explored, and leaves
-unlocking/purchase decisions to a future explicit shopping plan.  This avoids
-both shopkeeper hostility and repeatedly searching an intentionally skipped
-doorway.
+Rule derived: touching a cockatrice without protection from petrification is
+instantly fatal; a monk's unarmed attack is therefore not a valid combat action.
+The combat controller must retreat or use a ranged attack until it has a
+separately verified safe-contact capability.
 
-Diagnostic support: setting `AUTOASCEND_TRACE` writes a bounded action/state
-trace outside the solution directory; `AUTOASCEND_TRACE_LIMIT` defaults to
-50,000 actions.  It is inactive in normal arena evaluation.
+Diagnostic evidence: the parent evaluation has two petrification deaths
+(seeds 9 and 11).  Seed 9 reaches XP 10 and then dies specifically to a
+cockatrice, showing that the existing generic melee action remains available
+at the obstacle.  The combat action generator now removes contact attacks for
+cockatrices and Medusa, while the movement layer classifies them as threats to
+keep at range.

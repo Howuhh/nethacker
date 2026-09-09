@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import queue
 import threading
 import traceback
@@ -86,7 +87,7 @@ class AutoAscendDriver:
         # JIT compile was ESC'd and derailed AutoAscend, corrupting the baseline.
         # This is independent of the arena's --action-timeout (bot.py builds this
         # driver argless), so it must be kept just under the sandbox knob by hand.
-        self._action_timeout = action_timeout
+        self._action_timeout = float(os.environ.get("AUTOASCEND_ACTION_TIMEOUT", action_timeout))
         self._env: ArenaEnvAdapter | None = None
         self._agent: autoascend_agent.Agent | None = None
         self._thread: threading.Thread | None = None
@@ -137,3 +138,7 @@ class AutoAscendDriver:
             pass
         except BaseException:
             self._thread_error = traceback.format_exc(limit=20)[-8_000:]
+            trace_path = os.environ.get("AUTOASCEND_THREAD_ERROR")
+            if trace_path:
+                with open(trace_path, "w", encoding="utf-8") as trace:
+                    trace.write(self._thread_error)

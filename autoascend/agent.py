@@ -369,17 +369,16 @@ class Agent:
         self.step_count += 1
         self.score += reward
 
-        # Optional replay aid.  Kept off in arena runs, but records the command
-        # and the immediately preceding state when diagnosing deterministic seeds.
+        # Optional deterministic replay aid; disabled in normal arena runs.
+        # Record the decision context immediately before parsing the next frame.
         trace_path = os.environ.get('AUTOASCEND_TRACE')
         if trace_path and self.step_count <= int(os.environ.get('AUTOASCEND_TRACE_LIMIT', '50000')):
             with open(trace_path, 'a', encoding='utf-8') as trace:
                 old = getattr(self, 'blstats', None)
                 trace.write(f"{self.step_count}\t{int(action)}\t"
-                            f"{getattr(old, 'time', '?')}\t{getattr(old, 'depth', '?')}\t"
-                            f"{getattr(old, 'hitpoints', '?')}/{getattr(old, 'max_hitpoints', '?')}\t"
-                            f"gold={getattr(old, 'gold', '?')}\t"
-                            f"{self.message[-180:]!r}\n")
+                            f"t={getattr(old, 'time', '?')} d={getattr(old, 'depth', '?')} "
+                            f"hp={getattr(old, 'hitpoints', '?')}/{getattr(old, 'max_hitpoints', '?')} "
+                            f"{getattr(self, 'message', '')[-160:]!r}\n")
 
         self.cursor_pos = (observation['tty_cursor'][0] - 1, observation['tty_cursor'][1])
 

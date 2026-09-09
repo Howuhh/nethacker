@@ -7,7 +7,7 @@ INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle',
 HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
                         'tiger', 'winter wolf']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
-WEIRD_MONSTERS = ['leprechaun', 'nymph']
+WEIRD_MONSTERS = ['leprechaun', 'nymph', 'cockatrice', 'Medusa']
 
 
 def is_monster_faster(agent, monster):
