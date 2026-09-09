@@ -8,15 +8,6 @@ HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
                         'tiger', 'winter wolf']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
-# A footrice is not merely a high-damage monster.  A weaponless attack can
-# invoke its passive stoning attack, and its own touch attack can start the
-# delayed-stoning countdown.  Keep this separate from the ordinary damage
-# classifications so all combat action selection can enforce the hard rule.
-PETRIFYING_MONSTERS = ['cockatrice', 'chickatrice']
-
-
-def is_petrifying_monster(monster):
-    return monster[3].mname in PETRIFYING_MONSTERS
 
 
 def is_monster_faster(agent, monster):
@@ -27,8 +18,6 @@ def is_monster_faster(agent, monster):
 
 
 def imminent_death_on_melee(agent, monster):
-    if is_petrifying_monster(monster):
-        return True
     if monster[3].mname == 'mumak':
         return agent.blstats.hitpoints <= 60
     if is_dangerous_monster(monster):
@@ -51,8 +40,7 @@ def is_dangerous_monster(monster):
     # or 'mimic' in mon.mname
     # hypothesis: classifying high-damage mid-dungeon monsters as dangerous
     # makes low-HP combat kite or engrave instead of committing to melee.
-    return is_pet or is_mumak or mon.mname in INSECTS or mon.mname in HIGH_DAMAGE_MONSTERS or \
-           is_petrifying_monster(monster)
+    return is_pet or is_mumak or mon.mname in INSECTS or mon.mname in HIGH_DAMAGE_MONSTERS
 
 
 def consider_melee_only_ranged_if_hp_full(agent, monster):

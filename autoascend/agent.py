@@ -1463,9 +1463,18 @@ class Agent:
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
+        imminent_melee_threat = any(
+            utils.adjacent((self.blstats.y, self.blstats.x), (y, x)) and
+            combat.monster_utils.imminent_death_on_melee(self, monster)
+            for _, y, x, monster, _ in self.get_visible_monsters())
         if (
                 (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
+                 or self.blstats.hitpoints < 8
+                 # hypothesis: a one-third-HP potion trigger is too late for
+                 # an adjacent high-damage monster (notably the 60-damage
+                 # mumak).  Spend a finite heal before an identified lethal
+                 # melee exchange rather than after it has already occurred.
+                 or imminent_melee_threat) and items
         ):
             yield True
             self.inventory.quaff(items[0])
