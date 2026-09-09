@@ -7,8 +7,7 @@ from scipy import signal
 from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full, \
-    imminent_death_on_melee
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -16,9 +15,7 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
-    # hypothesis: don't let adjacent-melee priority override the escape
-    # heuristic when a dangerous monster can kill the low-HP monk in melee.
-    if not imminent_death_on_melee(agent, monster) or is_monster_faster(agent, monster):
+    if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
         ret -= 6
@@ -207,6 +204,7 @@ def elbereth_action(agent, monsters):
     if not agent.can_engrave():
         return []
     adj_monsters_count = 0
+    dangerous_adjacent = False
     for monster in monsters:
         _, my, mx, mon, _ = monster
         if mon.mname in ONLY_RANGED_SLOW_MONSTERS:
@@ -222,10 +220,15 @@ def elbereth_action(agent, monsters):
         adj_monsters_count += 1 * multiplier
         if is_dangerous_monster(monster):
             adj_monsters_count += 2 * multiplier
+            dangerous_adjacent = True
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
+        # hypothesis: making emergency Elbereth decisive against dangerous
+        # adjacent monsters prevents a low-HP monk from attacking into death.
+        priority = (20 if dangerous_adjacent else -15) + \
+                   20 * adj_monsters_count * (1 - player_hp_ratio)
+        return [(priority, ('elbereth',))]
     return []
 
 
