@@ -4,8 +4,17 @@ EXPLODING_MONSTERS = ['yellow light', 'gas spore', 'flaming sphere', 'freezing s
 INSECTS = ['giant ant', 'killer bee', 'soldier ant', 'fire ant', 'giant beetle', 'queen bee']
 # Threats whose melee damage can kill a weakened early-game character in one
 # exchange, even though they are not fast or insects.
+# hypothesis: adding trolls, yetis, and giants to HIGH_DAMAGE_MONSTERS makes
+# the monk kite these common mid-game threats instead of engaging in melee
+# that whittles it down to death.  Trolls deal 2-10 damage across two attacks
+# per round and regenerate; yetis hit hard and move at 15; giants are STRONG
+# (double damage) with high difficulty.  All are encountered at the depths the
+# bot reaches (5-15) yet were previously classified as "not dangerous", so the
+# monk walked into melee and bled out.
 HIGH_DAMAGE_MONSTERS = ['ape', 'gargoyle', 'owlbear', 'rope golem',
-                        'tiger', 'winter wolf']
+                        'tiger', 'winter wolf', 'troll', 'yeti',
+                        'ettin', 'hill giant', 'stone giant',
+                        'frost giant', 'fire giant']
 WEAK_MONSTERS = ['lichen', 'newt', 'shrieker', 'grid bug']
 WEIRD_MONSTERS = ['leprechaun', 'nymph']
 
