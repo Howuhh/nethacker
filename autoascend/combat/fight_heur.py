@@ -4,7 +4,7 @@ from itertools import product
 import numpy as np
 from scipy import signal
 
-from ..glyph import G
+from ..glyph import G, Hunger
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
@@ -234,6 +234,27 @@ def wait_action(agent, monsters):
     return []
 
 
+# hypothesis: monks die frequently to normal monsters because the combat
+# loop can never heal mid-fight -- emergency_strategy is preempted by fight2,
+# so healing only happens between fights. Adding the monk's starting healing
+# spell as a combat action lets the monk sustain itself in extended fights
+# instead of whittling down to death at low HP.
+def cast_heal_action(agent, monsters):
+    if 'healing' not in agent.character.known_spells:
+        return []
+    if agent.blstats.hunger_state >= Hunger.FAINTING:
+        return []
+    if agent._last_turn - agent.last_cast_fail_turn['healing'] < 2:
+        return []
+    if agent.character.spell_fail_chance.get('healing', 1) > 0.2:
+        return []
+    hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
+    if hp_ratio < 0.5 and agent.blstats.energy >= 5:
+        priority = 50 * (1 - hp_ratio)
+        return [(priority, ('cast_heal',))]
+    return []
+
+
 def get_available_actions(agent, monsters):
     actions = []
 
@@ -268,6 +289,7 @@ def get_available_actions(agent, monsters):
 
     actions.extend(elbereth_action(agent, monsters))
     actions.extend(wait_action(agent, monsters))
+    actions.extend(cast_heal_action(agent, monsters))
 
     return actions
 
