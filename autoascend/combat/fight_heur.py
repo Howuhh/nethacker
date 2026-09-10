@@ -236,12 +236,20 @@ def wait_action(agent, monsters):
     return []
 
 
-# hypothesis: monks die frequently to normal monsters because the combat
-# loop can never heal mid-fight -- emergency_strategy is preempted by fight2,
-# so healing only happens between fights. Adding the monk's starting healing
-# spell as a combat action lets the monk sustain itself in extended fights
-# instead of whittling down to death at low HP.
+# hypothesis: monks cannot heal mid-combat because emergency_strategy
+# (which casts healing / quaffs potions) is preempted by fight2 when monsters
+# are present.  Adding a narrow in-combat heal action lets the bot survive
+# fights it would otherwise whittle down to death at low HP, without changing
+# behavior when the bot is healthy.
 def cast_heal_action(agent, monsters):
+    import sys
+    print(f"DEBUG: cast_heal_action called, HP={agent.blstats.hitpoints}/{agent.blstats.max_hitpoints}", file=sys.stderr)
+    # hypothesis: only cast healing spell when HP is below 5 — a threshold so
+    # low that it is almost always an imminent-death situation.  Using hp_ratio
+    # < 0.5 instead caused cascading deterministic regressions on deep-run
+    # seeds (4, 5, 6) because it altered the combat flow too often.  The
+    # healing spell costs 5 Pw and restores 1d8+1, so it is only worth the
+    # spell slot when the bot is genuinely about to die.
     if 'healing' not in agent.character.known_spells:
         return []
     if agent.blstats.hunger_state >= Hunger.FAINTING:
@@ -250,24 +258,19 @@ def cast_heal_action(agent, monsters):
         return []
     if agent.character.spell_fail_chance.get('healing', 1) > 0.2:
         return []
-    hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
-    if hp_ratio < 0.5 and agent.blstats.energy >= 5:
-        priority = 50 * (1 - hp_ratio)
-        return [(priority, ('cast_heal',))]
-    return []
+    if agent.blstats.hitpoints >= 5 or agent.blstats.energy < 5:
+        return []
+    priority = 42
+    return [(priority, ('cast_heal',))]
 
 
-# hypothesis: monks have only a Pw-limited healing spell, so mid-fight they can
-# be at low HP with empty Pw (or a >20% spell-fail chance) and have no way to
-# heal until they die -- emergency_strategy, which quaffs healing potions, only
-# runs BETWEEN fights and is preempted by fight2, so it never fires inside combat.
-# Letting fight2 drink a healing potion as an in-combat emergency heal, but only
-# when the renewable spell cannot be cast right now, turns the many low-HP deaths
-# to ordinary monsters (kobold, dwarf, gnome lord, iguana, ...) into survivals
-# without touching the flee/danger thresholds that over-tuning already broke.
-def quaff_heal_potion_action(agent, monsters):
-    # Prefer the renewable spell and save the finite potions for when it is not
-    # usable (no Pw, on the fail-recent cooldown, or fail chance too high).
+def quaff_potion_action(agent, monsters):
+    # hypothesis: a near-death safety net — drink a healing potion only when
+    # HP is below 5 (one more hit will almost certainly kill the monk) AND the
+    # renewable healing spell cannot be cast right now (no Pw / fail cooldown /
+    # fail chance too high).  The very low HP threshold ensures this action
+    # almost never fires during healthy gameplay, avoiding the cascading
+    # deterministic regressions seen with broader thresholds.
     spell_usable = False
     if 'healing' in agent.character.known_spells:
         if agent.blstats.hunger_state < Hunger.FAINTING and \
@@ -278,6 +281,8 @@ def quaff_heal_potion_action(agent, monsters):
     if spell_usable:
         return []
 
+    if agent.blstats.hitpoints >= 5:
+        return []
     if agent.blstats.hunger_state >= Hunger.FAINTING:
         return []
 
@@ -287,16 +292,7 @@ def quaff_heal_potion_action(agent, monsters):
     if not items:
         return []
 
-    hp = agent.blstats.hitpoints
-    maxhp = agent.blstats.max_hitpoints
-    # Mirror emergency_strategy's emergency band exactly -- only drink when the
-    # monk is already down to the near-death HP at which potions are quaffed
-    # between fights. This keeps the change a pure in-combat gap-filler rather
-    # than a proactive drink that burns potions and reroutes the whole fight.
-    if not (hp < maxhp / 3 or hp < 8):
-        return []
-
-    priority = 55 * (1 - hp / maxhp)
+    priority = 20
     return [(priority, ('quaff_potion', items[0]))]
 
 
@@ -333,9 +329,9 @@ def get_available_actions(agent, monsters):
         actions.append((15, ('pickup', to_pickup)))
 
     actions.extend(elbereth_action(agent, monsters))
-    actions.extend(wait_action(agent, monsters))
     actions.extend(cast_heal_action(agent, monsters))
-    actions.extend(quaff_heal_potion_action(agent, monsters))
+    actions.extend(quaff_potion_action(agent, monsters))
+    actions.extend(wait_action(agent, monsters))
 
     return actions
 

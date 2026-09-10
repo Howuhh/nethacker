@@ -1,5 +1,4 @@
 import functools
-import os
 from functools import partial, wraps
 from itertools import chain
 
@@ -114,20 +113,10 @@ def any_in(array, *elems):
     return isin(array, *elems).any()
 
 
-_DBG_FILE = None
-
-
 @toolz.curry
 def debug_log(txt, fun, color=(255, 255, 255)):
     @wraps(fun)
     def wrapper(self, *args, **kwargs):
-        global _DBG_FILE
-        if _DBG_FILE is None:
-            if os.environ.get("DEBUG_BOT"):
-                _DBG_FILE = open("/tmp/bot_debug.log", "a")
-        if _DBG_FILE is not None:
-            _DBG_FILE.write(f"{txt}\n")
-            _DBG_FILE.flush()
         # TODO: make it cleaner
         if type(self).__name__ != 'Agent':
             env = self.agent.env

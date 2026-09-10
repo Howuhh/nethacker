@@ -1,5 +1,4 @@
 import contextlib
-import os
 import re
 from collections import namedtuple, Counter, defaultdict
 from functools import partial
@@ -11,8 +10,6 @@ from nle.nethack import actions as A
 
 from . import combat
 from . import utils
-
-_DEBUG_FIGHT = bool(os.environ.get("DEBUG_FIGHT"))
 from .character import Character
 from .exceptions import AgentPanic, AgentFinished, AgentChangeStrategy
 from .exploration_logic import ExplorationLogic
@@ -1166,18 +1163,6 @@ class Agent:
 
             with self.env.debug_tiles(move_priority_heatmap, color='turbo', is_heatmap=True):
                 actions_str = '|'.join([combat.utils.action_str(self, a) for a in sorted(actions, key=lambda x: x[0])])
-                if _DEBUG_FIGHT:
-                    try:
-                        with open("/tmp/fight_debug.log", "a") as _f:
-                            _f.write(f"turn={self.blstats.time} xl={self.blstats.experience_level} "
-                                     f"hp={self.blstats.hitpoints}/{self.blstats.max_hitpoints} "
-                                     f"pw={self.blstats.energy}/{self.blstats.max_energy} "
-                                     f"known={'healing' in self.character.known_spells} "
-                                     f"fail={self.character.spell_fail_chance.get('healing',-1)} "
-                                     f"chosen={combat.utils.action_str(self, (priority, best_action))} "
-                                     f"all={actions_str}\n")
-                    except BaseException as _e:
-                        pass
                 with self.env.debug_log(actions_str):
                     wait_counter = self._fight2_perform_action(best_action, wait_counter)
 
@@ -1260,6 +1245,8 @@ class Agent:
                        debug_tiles_args=dict(color=(255, 0, 0), is_path=True))
             return wait_counter
         elif best_action[0] == 'cast_heal':
+            import sys
+            print(f"DEBUG: _fight2_perform_action cast_heal HP={self.blstats.hitpoints}/{self.blstats.max_hitpoints}", file=sys.stderr)
             self.cast('healing', direction=(0, 0))
             return wait_counter
         elif best_action[0] == 'quaff_potion':
@@ -1434,16 +1421,6 @@ class Agent:
             yield False
             return
 
-        # TEMP DEBUG: inspect all spellbooks in inventory
-        for item in flatten_items(self.inventory.items):
-            if item.category == nh.SPBOOK_CLASS:
-                import os as _os
-                if _os.environ.get("DEBUG_BOT"):
-                    with open("/tmp/bot_debug.log", "a") as _f:
-                        _f.write(f"[DBG_SPELLBOOK] name={item.object.name} status={item.status} "
-                                 f"is_unambiguous={item.is_unambiguous()} objs_len={len(item.objs)} "
-                                 f"known_spells={self.character.known_spells}\n")
-
         # Do not spend a turn learning protection/sleep until there is a
         # tactical casting policy for them. Healing has one below.
         useful = {'healing'}
@@ -1456,12 +1433,10 @@ class Agent:
             item.is_unambiguous() and item.category == nh.POTION_CLASS and
             item.object.name in ('healing', 'extra healing', 'full healing')
             for item in flatten_items(self.inventory.items))
-        # hypothesis: learning the healing spell unconditionally — even when
-        # healing potions are available — ensures the monk has a renewable
-        # heal source for extended fights, which is critical for early-game
-        # survival. Potions are consumed first, but running out mid-fight
-        # is fatal without the spell.
-        if self._monk_starting_spell_studied or not candidates:
+        # Strategy preconditions run under disallow_step_calling.  In
+        # particular, do not open the spell menu here; the boolean also keeps
+        # a failed/forgotten study from repeatedly consuming turns.
+        if self._monk_starting_spell_studied or not candidates or healing_potions_left:
             yield False
             return
         yield True
