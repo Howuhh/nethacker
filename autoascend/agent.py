@@ -1244,6 +1244,9 @@ class Agent:
             self.go_to(target_y, target_x, stop_one_before=True, max_steps=1,
                        debug_tiles_args=dict(color=(255, 0, 0), is_path=True))
             return wait_counter
+        elif best_action[0] == 'cast_heal':
+            self.cast('healing', direction=(0, 0))
+            return wait_counter
         raise NotImplementedError(best_action)
 
     @utils.debug_log('engulfed_fight')
@@ -1424,10 +1427,12 @@ class Agent:
             item.is_unambiguous() and item.category == nh.POTION_CLASS and
             item.object.name in ('healing', 'extra healing', 'full healing')
             for item in flatten_items(self.inventory.items))
-        # Strategy preconditions run under disallow_step_calling.  In
-        # particular, do not open the spell menu here; the boolean also keeps
-        # a failed/forgotten study from repeatedly consuming turns.
-        if self._monk_starting_spell_studied or not candidates or healing_potions_left:
+        # hypothesis: learning the healing spell unconditionally — even when
+        # healing potions are available — ensures the monk has a renewable
+        # heal source for extended fights, which is critical for early-game
+        # survival. Potions are consumed first, but running out mid-fight
+        # is fatal without the spell.
+        if self._monk_starting_spell_studied or not candidates:
             yield False
             return
         yield True
@@ -1455,11 +1460,6 @@ class Agent:
         #     yield True
         #     self.cast('extra healing', direction=(0, 0))
         #     return
-
-        if self.should_cast_heal():
-            yield True
-            self.cast('healing', direction=(0, 0))
-            return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
