@@ -25,7 +25,10 @@ def imminent_death_on_melee(agent, monster):
         # entering lethal melee after gaining levels, when 16 HP is no longer
         # a meaningful fraction of the damage an adjacent threat can deal.
         return agent.blstats.hitpoints <= max(16, 0.55 * agent.blstats.max_hitpoints)
-    return agent.blstats.hitpoints <= 8
+    # hypothesis: a relative HP threshold makes the monk retreat from
+    # ordinary monsters when moderately wounded, instead of fighting on
+    # until a flat 8 HP — which at XL6+ is a trivial fraction of max HP.
+    return agent.blstats.hitpoints <= max(8, 0.3 * agent.blstats.max_hitpoints)
 
 
 def is_dangerous_monster(monster):

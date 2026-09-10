@@ -1,12 +1,10 @@
 from collections import defaultdict
 from itertools import product
 
-import nle.nethack as nh
 import numpy as np
 from scipy import signal
 
 from ..glyph import G, Hunger
-from ..item import flatten_items
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
@@ -236,20 +234,12 @@ def wait_action(agent, monsters):
     return []
 
 
-# hypothesis: monks cannot heal mid-combat because emergency_strategy
-# (which casts healing / quaffs potions) is preempted by fight2 when monsters
-# are present.  Adding a narrow in-combat heal action lets the bot survive
-# fights it would otherwise whittle down to death at low HP, without changing
-# behavior when the bot is healthy.
+# hypothesis: monks die frequently to normal monsters because the combat
+# loop can never heal mid-fight -- emergency_strategy is preempted by fight2,
+# so healing only happens between fights. Adding the monk's starting healing
+# spell as a combat action lets the monk sustain itself in extended fights
+# instead of whittling down to death at low HP.
 def cast_heal_action(agent, monsters):
-    import sys
-    print(f"DEBUG: cast_heal_action called, HP={agent.blstats.hitpoints}/{agent.blstats.max_hitpoints}", file=sys.stderr)
-    # hypothesis: only cast healing spell when HP is below 5 — a threshold so
-    # low that it is almost always an imminent-death situation.  Using hp_ratio
-    # < 0.5 instead caused cascading deterministic regressions on deep-run
-    # seeds (4, 5, 6) because it altered the combat flow too often.  The
-    # healing spell costs 5 Pw and restores 1d8+1, so it is only worth the
-    # spell slot when the bot is genuinely about to die.
     if 'healing' not in agent.character.known_spells:
         return []
     if agent.blstats.hunger_state >= Hunger.FAINTING:
@@ -258,42 +248,11 @@ def cast_heal_action(agent, monsters):
         return []
     if agent.character.spell_fail_chance.get('healing', 1) > 0.2:
         return []
-    if agent.blstats.hitpoints >= 5 or agent.blstats.energy < 5:
-        return []
-    priority = 42
-    return [(priority, ('cast_heal',))]
-
-
-def quaff_potion_action(agent, monsters):
-    # hypothesis: a near-death safety net — drink a healing potion only when
-    # HP is below 5 (one more hit will almost certainly kill the monk) AND the
-    # renewable healing spell cannot be cast right now (no Pw / fail cooldown /
-    # fail chance too high).  The very low HP threshold ensures this action
-    # almost never fires during healthy gameplay, avoiding the cascading
-    # deterministic regressions seen with broader thresholds.
-    spell_usable = False
-    if 'healing' in agent.character.known_spells:
-        if agent.blstats.hunger_state < Hunger.FAINTING and \
-                agent._last_turn - agent.last_cast_fail_turn['healing'] >= 1 and \
-                agent.character.spell_fail_chance.get('healing', 1) <= 0.2 and \
-                agent.blstats.energy >= 5:
-            spell_usable = True
-    if spell_usable:
-        return []
-
-    if agent.blstats.hitpoints >= 5:
-        return []
-    if agent.blstats.hunger_state >= Hunger.FAINTING:
-        return []
-
-    items = [item for item in flatten_items(agent.inventory.items)
-             if item.is_unambiguous() and item.category == nh.POTION_CLASS
-             and item.object.name in ('healing', 'extra healing', 'full healing')]
-    if not items:
-        return []
-
-    priority = 20
-    return [(priority, ('quaff_potion', items[0]))]
+    hp_ratio = agent.blstats.hitpoints / agent.blstats.max_hitpoints
+    if hp_ratio < 0.5 and agent.blstats.energy >= 5:
+        priority = 50 * (1 - hp_ratio)
+        return [(priority, ('cast_heal',))]
+    return []
 
 
 def get_available_actions(agent, monsters):
@@ -329,9 +288,8 @@ def get_available_actions(agent, monsters):
         actions.append((15, ('pickup', to_pickup)))
 
     actions.extend(elbereth_action(agent, monsters))
-    actions.extend(cast_heal_action(agent, monsters))
-    actions.extend(quaff_potion_action(agent, monsters))
     actions.extend(wait_action(agent, monsters))
+    actions.extend(cast_heal_action(agent, monsters))
 
     return actions
 
