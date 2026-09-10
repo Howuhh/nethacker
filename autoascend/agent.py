@@ -1,4 +1,5 @@
 import contextlib
+import os
 import re
 from collections import namedtuple, Counter, defaultdict
 from functools import partial
@@ -10,6 +11,8 @@ from nle.nethack import actions as A
 
 from . import combat
 from . import utils
+
+_DEBUG_FIGHT = bool(os.environ.get("DEBUG_FIGHT"))
 from .character import Character
 from .exceptions import AgentPanic, AgentFinished, AgentChangeStrategy
 from .exploration_logic import ExplorationLogic
@@ -1163,6 +1166,18 @@ class Agent:
 
             with self.env.debug_tiles(move_priority_heatmap, color='turbo', is_heatmap=True):
                 actions_str = '|'.join([combat.utils.action_str(self, a) for a in sorted(actions, key=lambda x: x[0])])
+                if _DEBUG_FIGHT:
+                    try:
+                        with open("/tmp/fight_debug.log", "a") as _f:
+                            _f.write(f"turn={self.blstats.time} xl={self.blstats.experience_level} "
+                                     f"hp={self.blstats.hitpoints}/{self.blstats.max_hitpoints} "
+                                     f"pw={self.blstats.energy}/{self.blstats.max_energy} "
+                                     f"known={'healing' in self.character.known_spells} "
+                                     f"fail={self.character.spell_fail_chance.get('healing',-1)} "
+                                     f"chosen={combat.utils.action_str(self, (priority, best_action))} "
+                                     f"all={actions_str}\n")
+                    except BaseException as _e:
+                        pass
                 with self.env.debug_log(actions_str):
                     wait_counter = self._fight2_perform_action(best_action, wait_counter)
 
@@ -1246,6 +1261,10 @@ class Agent:
             return wait_counter
         elif best_action[0] == 'cast_heal':
             self.cast('healing', direction=(0, 0))
+            return wait_counter
+        elif best_action[0] == 'quaff_potion':
+            _, item = best_action
+            self.inventory.quaff(item)
             return wait_counter
         raise NotImplementedError(best_action)
 
@@ -1415,6 +1434,16 @@ class Agent:
             yield False
             return
 
+        # TEMP DEBUG: inspect all spellbooks in inventory
+        for item in flatten_items(self.inventory.items):
+            if item.category == nh.SPBOOK_CLASS:
+                import os as _os
+                if _os.environ.get("DEBUG_BOT"):
+                    with open("/tmp/bot_debug.log", "a") as _f:
+                        _f.write(f"[DBG_SPELLBOOK] name={item.object.name} status={item.status} "
+                                 f"is_unambiguous={item.is_unambiguous()} objs_len={len(item.objs)} "
+                                 f"known_spells={self.character.known_spells}\n")
+
         # Do not spend a turn learning protection/sleep until there is a
         # tactical casting policy for them. Healing has one below.
         useful = {'healing'}
@@ -1460,6 +1489,11 @@ class Agent:
         #     yield True
         #     self.cast('extra healing', direction=(0, 0))
         #     return
+
+        if self.should_cast_heal():
+            yield True
+            self.cast('healing', direction=(0, 0))
+            return
 
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]

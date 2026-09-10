@@ -1,10 +1,12 @@
 from collections import defaultdict
 from itertools import product
 
+import nle.nethack as nh
 import numpy as np
 from scipy import signal
 
 from ..glyph import G, Hunger
+from ..item import flatten_items
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
     ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
@@ -213,11 +215,7 @@ def elbereth_action(agent, monsters):
         multiplier = np.clip(20 / agent.blstats.hitpoints, 1.0, 1.5)
         if is_monster_faster(agent, monster):
             multiplier *= 2
-        # hypothesis: fixing the type comparison (mon.mname vs string list)
-        # ensures weak adjacent monsters contribute only 0.1× threat weight
-        # instead of 1×, so the monk attacks them for XP instead of wasting
-        # turns engraving Elbereth against trivial targets.
-        if mon.mname in WEAK_MONSTERS:
+        if mon in WEAK_MONSTERS:
             adj_monsters_count += 0.1 * multiplier
             continue
         adj_monsters_count += 1 * multiplier
@@ -259,6 +257,49 @@ def cast_heal_action(agent, monsters):
     return []
 
 
+# hypothesis: monks have only a Pw-limited healing spell, so mid-fight they can
+# be at low HP with empty Pw (or a >20% spell-fail chance) and have no way to
+# heal until they die -- emergency_strategy, which quaffs healing potions, only
+# runs BETWEEN fights and is preempted by fight2, so it never fires inside combat.
+# Letting fight2 drink a healing potion as an in-combat emergency heal, but only
+# when the renewable spell cannot be cast right now, turns the many low-HP deaths
+# to ordinary monsters (kobold, dwarf, gnome lord, iguana, ...) into survivals
+# without touching the flee/danger thresholds that over-tuning already broke.
+def quaff_heal_potion_action(agent, monsters):
+    # Prefer the renewable spell and save the finite potions for when it is not
+    # usable (no Pw, on the fail-recent cooldown, or fail chance too high).
+    spell_usable = False
+    if 'healing' in agent.character.known_spells:
+        if agent.blstats.hunger_state < Hunger.FAINTING and \
+                agent._last_turn - agent.last_cast_fail_turn['healing'] >= 1 and \
+                agent.character.spell_fail_chance.get('healing', 1) <= 0.2 and \
+                agent.blstats.energy >= 5:
+            spell_usable = True
+    if spell_usable:
+        return []
+
+    if agent.blstats.hunger_state >= Hunger.FAINTING:
+        return []
+
+    items = [item for item in flatten_items(agent.inventory.items)
+             if item.is_unambiguous() and item.category == nh.POTION_CLASS
+             and item.object.name in ('healing', 'extra healing', 'full healing')]
+    if not items:
+        return []
+
+    hp = agent.blstats.hitpoints
+    maxhp = agent.blstats.max_hitpoints
+    # Mirror emergency_strategy's emergency band exactly -- only drink when the
+    # monk is already down to the near-death HP at which potions are quaffed
+    # between fights. This keeps the change a pure in-combat gap-filler rather
+    # than a proactive drink that burns potions and reroutes the whole fight.
+    if not (hp < maxhp / 3 or hp < 8):
+        return []
+
+    priority = 55 * (1 - hp / maxhp)
+    return [(priority, ('quaff_potion', items[0]))]
+
+
 def get_available_actions(agent, monsters):
     actions = []
 
@@ -294,6 +335,7 @@ def get_available_actions(agent, monsters):
     actions.extend(elbereth_action(agent, monsters))
     actions.extend(wait_action(agent, monsters))
     actions.extend(cast_heal_action(agent, monsters))
+    actions.extend(quaff_heal_potion_action(agent, monsters))
 
     return actions
 
