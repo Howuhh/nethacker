@@ -15,6 +15,10 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
+    # hypothesis: treat ungloved cockatrices and Medusa as hazards, so the bot
+    # escapes instead of attacking them or later handling their corpses.
+    if mon.mname in ('cockatrice', 'Medusa') and agent.inventory.items.gloves is None:
+        ret -= 100
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
