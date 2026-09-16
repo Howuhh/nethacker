@@ -1132,8 +1132,8 @@ class Agent:
             move_priority_heatmap, actions = combat.fight_heur.get_priorities(self)
             actions.extend(combat.fight_heur.get_move_actions(self, dis, move_priority_heatmap))
 
-            if self.inventory.items.gloves is None and any(
-                    mon[3].mname in ('cockatrice', 'Medusa') for mon in monsters):
+            if self.inventory.items.gloves is None and self.inventory.items.main_hand is None and any(
+                mon[3].mname in ('cockatrice', 'Medusa') for mon in monsters):
                 # Escape until the petrifier is gone instead of attacking it or
                 # generating a corpse the exploration loop could handle bare-handed.
                 non_attack_actions = [a for a in actions if a[1][0] not in ('melee', 'ranged', 'zap')]

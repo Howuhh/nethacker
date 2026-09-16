@@ -20,9 +20,10 @@ def melee_monster_priority(agent, monsters, monster):
     # before the existing emergency/healing strategies get a turn.
     if agent.blstats.hitpoints <= 16 and mon.mname not in WEAK_MONSTERS:
         ret -= 100
-    # hypothesis: treat ungloved cockatrices and Medusa as hazards, so the bot
-    # escapes instead of attacking them or later handling their corpses.
-    if mon.mname in ('cockatrice', 'Medusa') and agent.inventory.items.gloves is None:
+    # hypothesis: an equipped weapon makes melee against petrifiers safe, so
+    # kill them when armed instead of fleeing until a cockatrice corners us.
+    if mon.mname in ('cockatrice', 'Medusa') and agent.inventory.items.gloves is None and \
+            agent.inventory.items.main_hand is None:
         ret -= 100
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
