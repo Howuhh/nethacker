@@ -15,6 +15,11 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
+    # hypothesis: at low HP, retreat from any non-weak melee threat so common
+    # early-game monsters (rats, snakes, orcs, and zombies) cannot finish us
+    # before the existing emergency/healing strategies get a turn.
+    if agent.blstats.hitpoints <= 16 and mon.mname not in WEAK_MONSTERS:
+        ret -= 100
     # hypothesis: treat ungloved cockatrices and Medusa as hazards, so the bot
     # escapes instead of attacking them or later handling their corpses.
     if mon.mname in ('cockatrice', 'Medusa') and agent.inventory.items.gloves is None:
