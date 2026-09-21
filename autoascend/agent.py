@@ -1417,8 +1417,10 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                (self.blstats.hitpoints < 1 / 3 * self.blstats.max_hitpoints
-                 or self.blstats.hitpoints < 8) and items
+                # hypothesis: healing before half HP prevents early high-damage
+                # fights from reaching the bot's too-late emergency threshold.
+                (self.blstats.hitpoints < 9 / 20 * self.blstats.max_hitpoints
+                 or self.blstats.hitpoints < 10) and items
         ):
             yield True
             self.inventory.quaff(items[0])
