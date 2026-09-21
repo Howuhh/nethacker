@@ -265,9 +265,7 @@ class ItemManager:
             r'( ([+-]\d+))? '
             r"([a-zA-z0-9-!'# ]+)"
             r'( \(([0-9]+:[0-9]+|no charge)\))?'
-            # hypothesis: parsing standard worn-ring and variable-weight glob annotations prevents
-            # otherwise productive deep runs from terminating when those externally-created states appear.
-            r'( \(((?:[0-9]+ aum, no charge)|[a-zA-Z0-9; ]+(, flickering|, gleaming|, glimmering)?[a-zA-Z0-9; ]*)\))?'
+            r'( \(([a-zA-Z0-9; ]+(, flickering|, gleaming|, glimmering)?[a-zA-Z0-9; ]*)\))?'
             r'( \((for sale|unpaid), (\d+ aum, )?((\d+)[a-zA-Z- ]+|no charge)\))?'
             r'$',
             text)
@@ -287,8 +285,7 @@ class ItemManager:
         ) = matches[0]
         # TODO: effects, uses
 
-        if info in {'being worn', 'being worn; slippery', 'wielded', 'chained to you',
-                    'on left hand', 'on right hand'} or info.startswith(
+        if info in {'being worn', 'being worn; slippery', 'wielded', 'chained to you'} or info.startswith(
                 'weapon in ') or \
                 info.startswith('tethered weapon in '):
             equipped = True
@@ -296,8 +293,7 @@ class ItemManager:
         elif info in {'at the ready', 'in quiver', 'in quiver pouch', 'lit'}:
             equipped = False
             at_ready = True
-        elif info in {'', 'alternate weapon; not wielded', 'alternate weapon; notwielded'} or \
-                re.fullmatch(r'[0-9]+ aum, no charge', info):
+        elif info in {'', 'alternate weapon; not wielded', 'alternate weapon; notwielded'}:
             equipped = False
             at_ready = False
         else:
