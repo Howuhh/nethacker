@@ -1245,6 +1245,11 @@ class Agent:
     def _is_corpse_editable(self, monster_id, age_turn):
         permonst = MON.permonst(monster_id)
 
+        # hypothesis: skipping garter-snake corpses avoids unpredictable
+        # poisoning from stale or rapidly spoiling ground-corpse age data.
+        if permonst.mname == 'garter snake':
+            return False
+
         # TODO: read intrinsics
         if self.character.race != Character.ORC and permonst.mflags1 & MON.M1_POIS != 0:
             return False
