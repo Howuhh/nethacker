@@ -34,12 +34,6 @@ def melee_monster_priority(agent, monsters, monster):
             if mon.mname == 'gas spore':
                 ret -= 5
 
-    # hypothesis: honor the low-HP melee danger check by preferring an escape
-    # move over an adjacent attack when the movement heuristic says to retreat.
-    if imminent_death_on_melee(agent, monster) and mon.mname not in WEAK_MONSTERS \
-            and mon.mname not in ONLY_RANGED_SLOW_MONSTERS:
-        ret -= 20
-
     if mon.mname == 'gas spore':
         # handle a specific case when you are trapped by a gas spore
         if len(agent.get_visible_monsters()) == 1 \
@@ -50,6 +44,12 @@ def melee_monster_priority(agent, monsters, monster):
                     return ret
             agent.stats_logger.log_event('melee_gas_spore')
             return 1  # a priority higher than random moving around
+
+    # hypothesis: honor the low-HP melee danger check by preferring an escape
+    # move over an adjacent attack when the movement heuristic says to retreat.
+    if imminent_death_on_melee(agent, monster) and mon.mname not in WEAK_MONSTERS \
+            and mon.mname not in ONLY_RANGED_SLOW_MONSTERS:
+        ret -= 20
 
     return ret
 
