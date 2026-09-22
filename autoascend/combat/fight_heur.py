@@ -7,7 +7,8 @@ from scipy import signal
 from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full, \
+    imminent_death_on_melee
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -32,6 +33,12 @@ def melee_monster_priority(agent, monsters, monster):
                 ret -= 10
             if mon.mname == 'gas spore':
                 ret -= 5
+
+    # hypothesis: honor the low-HP melee danger check by preferring an escape
+    # move over an adjacent attack when the movement heuristic says to retreat.
+    if imminent_death_on_melee(agent, monster) and mon.mname not in WEAK_MONSTERS \
+            and mon.mname not in ONLY_RANGED_SLOW_MONSTERS:
+        ret -= 20
 
     if mon.mname == 'gas spore':
         # handle a specific case when you are trapped by a gas spore
