@@ -24,8 +24,9 @@ def is_dangerous_monster(monster):
     _, y, x, mon, _ = monster
     is_pet = 'dog' in mon.mname or 'cat' in mon.mname or 'kitten' in mon.mname or 'pony' in mon.mname \
              or 'horse' in mon.mname
-    # hypothesis: treating common high-damage melee monsters as dangerous
-    # makes low-HP combat retreat before the normal melee threshold is fatal.
+    # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
+    # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname \
+    # or 'mimic' in mon.mname
     return is_pet or mon.mname in INSECTS or mon.mname == 'leocrotta'
 
 
