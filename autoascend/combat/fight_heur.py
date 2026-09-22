@@ -7,8 +7,7 @@ from scipy import signal
 from ..glyph import G
 from ..utils import adjacent
 from .monster_utils import is_monster_faster, is_dangerous_monster, \
-    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full, \
-    imminent_death_on_melee
+    ONLY_RANGED_SLOW_MONSTERS, EXPLODING_MONSTERS, WEAK_MONSTERS, consider_melee_only_ranged_if_hp_full
 from .movement_priority import draw_monster_priority_positive, draw_monster_priority_negative
 from .utils import wielding_ranged_weapon, line_dis_from, inside
 
@@ -16,6 +15,16 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
     ret = 1
+    # hypothesis: below the emergency threshold, retreat from a non-weak
+    # adjacent monster instead of trading the last hit when an escape tile is
+    # available; this should improve survival across all starting roles.
+    if agent.blstats.hitpoints <= 8 and mon.mname not in WEAK_MONSTERS and not is_monster_faster(agent, monster):
+        ret -= 2
+    # hypothesis: an equipped weapon makes melee against petrifiers safe, so
+    # kill them when armed instead of fleeing until a cockatrice corners us.
+    if mon.mname in ('cockatrice', 'Medusa') and agent.inventory.items.gloves is None and \
+            agent.inventory.items.main_hand is None:
+        ret -= 100
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
     if wielding_ranged_weapon(agent) and not is_monster_faster(agent, monster):
@@ -33,12 +42,6 @@ def melee_monster_priority(agent, monsters, monster):
                 ret -= 10
             if mon.mname == 'gas spore':
                 ret -= 5
-
-    # hypothesis: honor the low-HP melee danger check by preferring an escape
-    # move over an adjacent attack when the movement heuristic says to retreat.
-    if imminent_death_on_melee(agent, monster) and mon.mname not in WEAK_MONSTERS \
-            and mon.mname not in ONLY_RANGED_SLOW_MONSTERS:
-        ret -= 20
 
     if mon.mname == 'gas spore':
         # handle a specific case when you are trapped by a gas spore
@@ -229,7 +232,15 @@ def elbereth_action(agent, monsters):
 
     player_hp_ratio = (agent.blstats.hitpoints / agent.blstats.max_hitpoints) ** 0.5
     if agent.blstats.hitpoints < 30 and adj_monsters_count > 0:
-        return [(-15 + 20 * adj_monsters_count * (1 - player_hp_ratio), ('elbereth',))]
+        priority = -15 + 20 * adj_monsters_count * (1 - player_hp_ratio)
+        # hypothesis: at low HP, force Elbereth against a nearby coyote instead
+        # of moving, so pursuit cannot turn into an unsafe melee.
+        if agent.blstats.hitpoints <= 20 and any(
+                mon[3].mname == 'coyote' and
+                adjacent((mon[1], mon[2]), (agent.blstats.y, agent.blstats.x))
+                for mon in monsters):
+            priority = max(priority, 25)
+        return [(priority, ('elbereth',))]
     return []
 
 
