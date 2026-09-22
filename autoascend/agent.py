@@ -1417,8 +1417,9 @@ class Agent:
         items = [item for item in flatten_items(self.inventory.items) if item.is_unambiguous() and
                  item.category == nh.POTION_CLASS and item.object.name in ['healing', 'extra healing', 'full healing']]
         if (
-                # hypothesis: healing before half HP prevents early high-damage
-                # fights from reaching the bot's too-late emergency threshold.
+                # hypothesis: a larger survival margin—healing earlier,
+                # disengaging from danger, and limiting early exposure—prevents
+                # the premature deaths that suppress progress across identities.
                 (self.blstats.hitpoints < 9 / 20 * self.blstats.max_hitpoints
                  or self.blstats.hitpoints < 10) and items
         ):

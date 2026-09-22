@@ -34,7 +34,7 @@ def melee_monster_priority(agent, monsters, monster):
             if mon.mname == 'gas spore':
                 ret -= 5
 
-    # hypothesis: retreat from dangerous melee threats before low-HP attacks become fatal.
+    # Apply the low-HP danger model to adjacent attacks as well as movement.
     if imminent_death_on_melee(agent, monster) and mon.mname not in WEAK_MONSTERS \
             and mon.mname not in ONLY_RANGED_SLOW_MONSTERS:
         ret -= 20
