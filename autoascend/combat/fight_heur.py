@@ -15,9 +15,6 @@ from .utils import wielding_ranged_weapon, line_dis_from, inside
 
 def melee_monster_priority(agent, monsters, monster):
     _, y, x, mon, _ = monster
-    # hypothesis: reducing the default adjacent-attack priority lets the
-    # movement heuristic choose safer positioning instead of trading melee
-    # damage whenever an ordinary monster is next to the player.
     ret = 1
     if agent.blstats.hitpoints > 8 or is_monster_faster(agent, monster):
         ret += 15
