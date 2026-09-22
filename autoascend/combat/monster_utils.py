@@ -27,6 +27,8 @@ def is_dangerous_monster(monster):
     # 'mumak' in mon.mname or 'orc' in mon.mname or 'rothe' in mon.mname \
     # or 'were' in mon.mname or 'unicorn' in mon.mname or 'elf' in mon.mname or 'leocrotta' in mon.mname \
     # or 'mimic' in mon.mname
+    # hypothesis: classify leocrottas as dangerous early-game melee threats so
+    # the movement heuristic retreats before their high damage becomes fatal.
     return is_pet or mon.mname in INSECTS or mon.mname == 'leocrotta'
 
 
