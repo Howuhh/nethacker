@@ -261,13 +261,11 @@ class ItemManager:
             r'^(a|an|the|\d+)'
             r'( empty)?'
             r'( (cursed|uncursed|blessed))?'
-            r'( (very |thoroughly )?(rustproof|poisoned|corroded|rusty|burnt|rotted|partly eaten|partly used|diluted|unlocked|locked|wet|greased))*'
+            r'( (very |thoroughly )?(rustproof|poisoned|corroded|rusty|burnt|rotted|partly eaten|partly used|diluted|unlocked|locked|moist|wet|greased))*'
             r'( ([+-]\d+))? '
             r"([a-zA-z0-9-!'# ]+)"
-            r'( \(([0-9]+:[0-9]+|no charge)\))?'
-            # hypothesis: parsing standard worn-ring and variable-weight glob annotations prevents
-            # otherwise productive deep runs from terminating when those externally-created states appear.
-            r'( \(((?:[0-9]+ aum, no charge)|[a-zA-Z0-9; ]+(, flickering|, gleaming|, glimmering)?[a-zA-Z0-9; ]*)\))?'
+            r'( \((?:\d+ aum, )?([0-9]+:[0-9]+|no charge)\))?'   # '(20 aum, no charge)': a free glob in a shop
+            r'( \(([a-zA-Z0-9; ]+(, flickering|, gleaming|, glimmering)?[a-zA-Z0-9; ]*)\))?'
             r'( \((for sale|unpaid), (\d+ aum, )?((\d+)[a-zA-Z- ]+|no charge)\))?'
             r'$',
             text)
@@ -287,8 +285,9 @@ class ItemManager:
         ) = matches[0]
         # TODO: effects, uses
 
+        # rings: a foocubus puts one on (s6 dive): an unparsed '(on right hand)' blinded the whole inventory
         if info in {'being worn', 'being worn; slippery', 'wielded', 'chained to you',
-                    'on left hand', 'on right hand'} or info.startswith(
+                    'on right hand', 'on left hand'} or info.startswith(
                 'weapon in ') or \
                 info.startswith('tethered weapon in '):
             equipped = True
@@ -296,8 +295,7 @@ class ItemManager:
         elif info in {'at the ready', 'in quiver', 'in quiver pouch', 'lit'}:
             equipped = False
             at_ready = True
-        elif info in {'', 'alternate weapon; not wielded', 'alternate weapon; notwielded'} or \
-                re.fullmatch(r'[0-9]+ aum, no charge', info):
+        elif info in {'', 'alternate weapon; not wielded', 'alternate weapon; notwielded'}:
             equipped = False
             at_ready = False
         else:
